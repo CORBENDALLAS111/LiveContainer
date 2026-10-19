@@ -4,6 +4,9 @@ Open **Applications → + → Advanced Install**. Select an original IPA, change
 bundle identifier or icon, and configure a per-identifier dylib/DEB preset. Choose LiveContainer
 to import into the container, or SideStore to sign and install a separate system application.
 This does not add signing entitlements, kernel privileges or extra Apple account app slots.
+The embedded SideStore's top-left + menu also offers Advanced Install in its standard launch
+mode. It returns to the host editor and preselects SideStore as the installation destination.
+When using a separate LiveProcess window, use the host application's + menu.
 
 The editor streams ZIP contents to a unique shared workspace, preserves executable permissions,
 rejects traversal, links, duplicate files, encrypted entries and excessive archive expansion.

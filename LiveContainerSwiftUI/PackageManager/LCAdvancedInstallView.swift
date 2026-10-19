@@ -2,8 +2,24 @@ import SwiftUI
 import UniformTypeIdentifiers
 import ImageIO
 
+enum LCAdvancedInstallRequest {
+    private static var url: URL? { LCSharedUtils.appGroupPath()?.appendingPathComponent("LiveContainer/AdvancedInstallRequest.plist") }
+    static var pending: Bool {
+        guard let url, let data = try? Data(contentsOf: url), data.count < 4096,
+              let values = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              values["bundleIdentifier"] as? String == Bundle.main.bundleIdentifier,
+              let date = values["date"] as? Date else { return false }
+        return (-120...5).contains(date.timeIntervalSinceNow)
+    }
+    static func consume() -> Bool {
+        guard pending, let url else { return false }
+        do { try FileManager.default.removeItem(at: url); return true } catch { return false }
+    }
+}
+
 /// All editing runs in the host. Embedded SideStore only receives the finished IPA and signs it.
 struct LCAdvancedInstallView: View {
+    var preferSideStore = false
     let installInContainer: (URL) -> Void
     let installWithSideStore: (URL) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -61,6 +77,7 @@ struct LCAdvancedInstallView: View {
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("lc.common.cancel".loc) { dismiss() }.disabled(working) } }
         }.navigationViewStyle(.stack)
         .interactiveDismissDisabled(working)
+        .onAppear { if app == nil && preferSideStore && UserDefaults.sideStoreExist() { destination = 1 } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
             do { if let url = try result.get().first { Task { await load(url) } } } catch { failure = error.localizedDescription }
         }

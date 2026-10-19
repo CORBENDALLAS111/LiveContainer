@@ -71,6 +71,7 @@ struct LCTabView: View {
             }
         }
         .task {
+            if LCAdvancedInstallRequest.pending { sharedModel.selectedTab = .apps }
             closeDuplicatedWindow()
             checkLastLaunchError()
             checkTeamId()

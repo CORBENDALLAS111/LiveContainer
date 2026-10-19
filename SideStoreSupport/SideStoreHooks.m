@@ -125,6 +125,43 @@ void SideStoreMyAppsViewController_hook_escapeButtonTapped(UICollectionViewContr
     [LCSharedUtils launchToGuestAppWithClassicMode:0];
 }
 
+static void (*SSOriginalSideloadApp)(UIViewController *, SEL, UIBarButtonItem *);
+static void SSSideloadApp(UIViewController *controller, SEL selector, UIBarButtonItem *sender) {
+    if (controller.presentedViewController || !SSOriginalSideloadApp) return;
+    NSBundle *host = NSUserDefaults.lcMainBundle;
+    NSString *(^localize)(NSString *, NSString *) = ^NSString *(NSString *key, NSString *fallback) {
+        return [host localizedStringForKey:key value:fallback table:nil];
+    };
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    [menu addAction:[UIAlertAction actionWithTitle:localize(@"lc.appList.installFromIpa", @"Install IPA") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [controller dismissViewControllerAnimated:YES completion:^{ SSOriginalSideloadApp(controller, selector, sender); }];
+    }]];
+    [menu addAction:[UIAlertAction actionWithTitle:localize(@"lcos.install.advanced", @"Advanced Install") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+      [controller dismissViewControllerAnimated:YES completion:^{
+        NSURL *group = LCSharedUtils.appGroupPath;
+        NSURL *request = [group URLByAppendingPathComponent:@"LiveContainer/AdvancedInstallRequest.plist"];
+        NSError *error = nil;
+        BOOL ready = group && [NSFileManager.defaultManager createDirectoryAtURL:request.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&error];
+        NSDictionary *values = @{@"date": NSDate.date, @"bundleIdentifier": host.bundleIdentifier ?: @""};
+        NSData *data = ready ? [NSPropertyListSerialization dataWithPropertyList:values format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error] : nil;
+        if (data && [data writeToURL:request options:NSDataWritingAtomic error:&error]) {
+            // Reuse the existing escape/relaunch boundary, without loading the host UI in SideStore.
+            [LCSharedUtils launchToGuestAppWithClassicMode:0];
+        } else {
+            UIAlertController *failure = [UIAlertController alertControllerWithTitle:localize(@"lc.common.error", @"Error") message:error.localizedDescription ?: @"Shared storage unavailable" preferredStyle:UIAlertControllerStyleAlert];
+            [failure addAction:[UIAlertAction actionWithTitle:localize(@"lc.common.ok", @"OK") style:UIAlertActionStyleDefault handler:nil]];
+            [controller presentViewController:failure animated:YES completion:nil];
+        }
+      }];
+    }]];
+    [menu addAction:[UIAlertAction actionWithTitle:localize(@"lc.common.cancel", @"Cancel") style:UIAlertActionStyleCancel handler:nil]];
+    if (menu.popoverPresentationController) {
+        if (sender) menu.popoverPresentationController.barButtonItem = sender;
+        else { menu.popoverPresentationController.sourceView = controller.view; menu.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), 0, 1, 1); }
+    }
+    [controller presentViewController:menu animated:YES completion:nil];
+}
+
 
 
 
@@ -204,6 +241,11 @@ void installSideStoreHooks(void) {
     method_setImplementation(altStoreSourceURLMethod, (IMP)SideStoreSource_hook_altStoreSourceURL);
     
     if (!NSUserDefaults.isLiveProcess) {
+        Method sideload = class_getInstanceMethod(PrivClass(MyAppsViewController), NSSelectorFromString(@"sideloadApp:"));
+        if (sideload) {
+            SSOriginalSideloadApp = (void (*)(UIViewController *, SEL, UIBarButtonItem *))method_getImplementation(sideload);
+            method_setImplementation(sideload, (IMP)SSSideloadApp);
+        }
         // add escape button
         Method viewDidLoadMethod = class_getInstanceMethod(PrivClass(MyAppsViewController), @selector(viewDidLoad));
         SideStoreMyAppsViewController_orig_viewDidload = (void (*)(UICollectionViewController *, SEL))method_getImplementation(viewDidLoadMethod);
