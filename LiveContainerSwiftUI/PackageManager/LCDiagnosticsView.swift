@@ -7,6 +7,7 @@ struct LCDiagnosticsView: View {
     @State private var errorsOnly = false
     @State private var query = ""
     @State private var failure: String?
+    @State private var sharing = false
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private var visible: [SigningDiagnostics.Entry] {
         entries.filter { (!errorsOnly || $0.level == "error") && (query.isEmpty || ($0.stage + $0.detail).localizedCaseInsensitiveContains(query)) }
@@ -57,7 +58,7 @@ struct LCDiagnosticsView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    ShareLink(item: export) { Label("lcos.logs.export".loc, systemImage: "square.and.arrow.up") }
+                    Button { sharing = true } label: { Label("lcos.logs.export".loc, systemImage: "square.and.arrow.up") }
                     Button(role: .destructive) {
                         do { try SigningDiagnostics.clear(); entries = [] } catch { failure = error.localizedDescription }
                     } label: { Label("lcos.logs.clear".loc, systemImage: "trash") }
@@ -65,6 +66,7 @@ struct LCDiagnosticsView: View {
             }
         }
         .task { entries = SigningDiagnostics.entries() }
+        .sheet(isPresented: $sharing) { ActivityViewController(activityItems: [export]) }
         .onReceive(timer) { _ in if following { entries = SigningDiagnostics.entries() } }
         .alert("lc.common.error".loc, isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("lc.common.ok".loc) { failure = nil }
