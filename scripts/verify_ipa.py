@@ -28,6 +28,11 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
             if not info.get(key):
                 raise ValueError('Missing Info.plist value: ' + key)
         executable = root + info['CFBundleExecutable']
+        touch_binary = root + 'Frameworks/TweakLoader.dylib'
+        if touch_binary in names and b'IOHIDEventCreateDigitizerFingerEventWithQuality' in archive.read(touch_binary):
+            for license_name in ['KIF-Apache-2.0.txt', 'KIF-NOTICE.txt']:
+                if root + license_name not in names or not archive.read(root + license_name):
+                    raise ValueError('Missing touch implementation license/notice: ' + license_name)
         if archive.read(executable)[:4] not in [bytes.fromhex('cffaedfe'), bytes.fromhex('cafebabe'), bytes.fromhex('bebafeca')]:
             raise ValueError('Missing Mach-O executable')
         for suffix in ['Frameworks/LiveContainerSwiftUI.framework/LiveContainerSwiftUI',

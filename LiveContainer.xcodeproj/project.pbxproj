@@ -198,6 +198,8 @@
 				"AppIconGrey76x76@2x~ipad.png",
 				Assets.xcassets,
 				DefaultIcon.png,
+				"KIF-Apache-2.0.txt",
+				"KIF-NOTICE.txt",
 				Localizable.xcstrings,
 				Settings.bundle,
 				universal.js,
