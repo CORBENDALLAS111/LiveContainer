@@ -12,6 +12,9 @@ out = root / 'artifacts/automation-preview'
 app = out / 'LCOSAutomationPreview.app'
 app.mkdir(parents=True, exist_ok=True)
 sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
+subprocess.run(['xcrun', 'swiftc', '-typecheck', '-parse-as-library', '-swift-version', '5',
+                '-target', 'arm64-apple-ios15.0-simulator', '-sdk', sdk,
+                str(root / 'LiveContainer/LCOSAppIntents.swift')], check=True)
 subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-target', 'arm64-apple-ios16.0-simulator',
                 '-isysroot', sdk, '-I', str(root / 'LiveContainer'),
                 str(root / 'Tests/AutomationPreview/Main.m'), str(root / 'TweakLoader/LCOSAutomation.m'),

@@ -31,11 +31,17 @@
     self.status.numberOfLines = 0; self.status.text = @"Testing actual guest automation runner…";
     [view addSubview:self.status];
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    button.frame = CGRectMake(50, self.window.bounds.size.height/2-30, self.window.bounds.size.width-100, 60);
+    button.frame = CGRectMake(50, self.window.bounds.size.height/2-150, self.window.bounds.size.width-100, 60);
     button.accessibilityIdentifier = @"fixture.button";
     [button setTitle:@"Continue" forState:UIControlStateNormal];
     [button addTarget:self action:@selector(pressed) forControlEvents:UIControlEventTouchUpInside];
     [view addSubview:button];
+    UIButton *modern = [UIButton buttonWithType:UIButtonTypeSystem];
+    modern.frame = CGRectMake(50, self.window.bounds.size.height/2-30, self.window.bounds.size.width-100, 60);
+    [modern setTitle:@"UIAction button" forState:UIControlStateNormal];
+    [modern addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [self pressed]; }]
+       forControlEvents:UIControlEventPrimaryActionTriggered];
+    [view addSubview:modern];
     [self.window makeKeyAndVisible];
     NSString *identifier = NSUUID.UUID.UUIDString;
     NSDictionary *base = @{@"id":NSUUID.UUID.UUIDString, @"seconds":@0.2, @"target":@"fixture.button", @"x":@0.5, @"y":@0.5};
@@ -49,7 +55,8 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         LCOSStartAutomation(identifier);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            BOOL activation = self.count == 2 && [[NSUserDefaults.standardUserDefaults dictionaryForKey:@"LCOSAutomationLastResult"][@"message"] hasPrefix:@"Completed"];
+            NSString *message = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"LCOSAutomationLastResult"][@"message"];
+            BOOL activation = self.count == 2 && ([message hasPrefix:@"Completed"] || [message hasPrefix:@"Выполнено"]);
             NSMutableDictionary *wait = base.mutableCopy; wait[@"kind"] = @"wait"; wait[@"seconds"] = @1;
             NSMutableDictionary *click = base.mutableCopy; click[@"kind"] = @"button";
             profile[@"steps"] = @[wait, click]; [self writeFile]; LCOSStartAutomation(identifier);

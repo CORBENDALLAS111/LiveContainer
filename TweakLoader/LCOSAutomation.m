@@ -11,6 +11,10 @@
 @property(nonatomic) NSUInteger nextStep;
 @end
 
+static NSString *LCOSAutomationText(NSString *english, NSString *russian) {
+    return [NSLocale.preferredLanguages.firstObject hasPrefix:@"ru"] ? russian : english;
+}
+
 static NSDictionary *LCOSReadAutomationFile(void) {
     const char *home = getenv("LC_HOME_PATH");
     if (!home) return nil;
@@ -30,7 +34,7 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     [NSUserDefaults.lcUserDefaults setObject:@{@"message":message, @"date":@(NSDate.date.timeIntervalSince1970)} forKey:@"LCOSAutomationLastResult"];
     [NSUserDefaults.lcUserDefaults synchronize];
 }
-- (void)stop { [self finish:@"Stopped / Остановлено"]; }
+- (void)stop { [self finish:LCOSAutomationText(@"Stopped", @"Остановлено")]; }
 - (NSArray<UIWindow *> *)windows {
     NSMutableArray *windows = [NSMutableArray new];
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
@@ -51,7 +55,8 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     if (view == self.stopButton || view.hidden || view.alpha <= 0.01 || !view.userInteractionEnabled) return NO;
     if ([view isKindOfClass:UIControl.class]) {
         UIControl *control = (UIControl *)view;
-        if (!control.enabled || control.allTargets.count == 0) return NO;
+        // UIAction handlers need not expose traditional target objects in allTargets.
+        if (!control.enabled) return NO;
         UIControlEvents events = control.allControlEvents;
         if (events & UIControlEventPrimaryActionTriggered) [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
         else if (events & UIControlEventTouchUpInside) [control sendActionsForControlEvents:UIControlEventTouchUpInside];
@@ -70,13 +75,13 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     for (UIView *child in view.subviews) [self find:target inView:child matches:matches];
 }
 - (void)schedule {
-    if (self.nextStep >= self.steps.count) { [self finish:@"Completed / Выполнено"]; return; }
+    if (self.nextStep >= self.steps.count) { [self finish:LCOSAutomationText(@"Completed", @"Выполнено")]; return; }
     NSUInteger generation = self.generation;
     NSDictionary *step = self.steps[self.nextStep];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)([step[@"seconds"] doubleValue] * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (generation != self.generation) return;
         if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive || ![LCOSReadAutomationFile()[@"enabled"] isEqual:@YES]) {
-            [self finish:@"Stopped: app left the foreground or scenarios were disabled. / Приложение скрыто или сценарии отключены."]; return;
+            [self finish:LCOSAutomationText(@"Stopped: app left the foreground or scenarios were disabled.", @"Остановлено: приложение скрыто или сценарии отключены.")]; return;
         }
         NSString *kind = step[@"kind"];
         BOOL success = [kind isEqualToString:@"wait"];
@@ -92,7 +97,7 @@ static NSDictionary *LCOSReadAutomationFile(void) {
             if (view && view != window) success = [self activate:view];
         }
         if (!success) {
-            [self finish:[NSString stringWithFormat:@"Step %lu: button unavailable, ambiguous or unsupported. / Кнопка не найдена, неоднозначна или не поддерживается.", (unsigned long)self.nextStep + 1]]; return;
+            [self finish:[NSString stringWithFormat:LCOSAutomationText(@"Step %lu: button unavailable, ambiguous or unsupported.", @"Шаг %lu: кнопка не найдена, неоднозначна или не поддерживается."), (unsigned long)self.nextStep + 1]]; return;
         }
         if (generation != self.generation) return;
         self.nextStep++; [self schedule];
@@ -136,7 +141,7 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     stop.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin;
     [stop setImage:[UIImage systemImageNamed:@"stop.fill"] forState:UIControlStateNormal];
     stop.backgroundColor = [UIColor.secondarySystemBackgroundColor colorWithAlphaComponent:0.95];
-    stop.layer.cornerRadius = 24; stop.accessibilityLabel = @"Stop automation / Остановить сценарий";
+    stop.layer.cornerRadius = 24; stop.accessibilityLabel = LCOSAutomationText(@"Stop automation", @"Остановить сценарий");
     [stop addTarget:self action:@selector(stop) forControlEvents:UIControlEventTouchUpInside];
     self.stopButton = stop; [window addSubview:stop]; [self schedule];
 }
