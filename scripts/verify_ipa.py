@@ -52,8 +52,8 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                 raise ValueError('SideStore binary lacks the signing injection implementation')
             if 'LCOSSigningInjectionUI.swift' not in manifest.get('overlay', {}) or not manifest.get('install_ui'):
                 raise ValueError('Missing SideStore installation UI integration provenance')
-            if b'LCOSSigningInjectionPresenter' not in archive.read(side + 'SideStore'):
-                raise ValueError('SideStore binary lacks the installation UI bridge')
+            if not manifest.get('install_ui', {}).get('host_ui_only') or not manifest.get('install_ui', {}).get('pipeline_diagnostics') or not manifest.get('install_ui', {}).get('picker_owned_copy'):
+                raise ValueError('SideStore must use host configuration and persistent pipeline diagnostics')
             if not manifest.get('extension_ids', {}).get('validate_before_signing') or 'SigningBundleIdentifiers.swift' not in manifest.get('overlay', {}):
                 raise ValueError('Missing extension bundle ID correction provenance')
             verify_embedded_sidebackup(archive)

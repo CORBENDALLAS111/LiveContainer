@@ -89,6 +89,11 @@ struct LCSettingsView: View {
                     } label: {
                         Label("lcos.automation.title".loc, systemImage: "play.rectangle.on.rectangle")
                     }
+                    NavigationLink {
+                        LCDiagnosticsView()
+                    } label: {
+                        Label("lcos.logs.title".loc, systemImage: "waveform.path.ecg")
+                    }
                 }
                 if sharedModel.multiLCStatus != 2 {
                     Section{

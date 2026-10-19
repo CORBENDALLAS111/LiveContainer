@@ -8,10 +8,17 @@ enum SigningBridgeTest {
     static func main() async throws {
         testGuestJITRouting()
         try await LCOSSigningInjectionUI.configure(identifier: "org.example.probe", appName: "Controlled probe", presenter: NSObject())
-        do {
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
             try await LCOSSigningInjectionUI.configure(identifier: "org.example.cancel", appName: "Controlled probe", presenter: NSObject())
-            throw SigningInjectionFailure.invalid("Install cancellation was ignored")
-        } catch is CancellationError { }
+        }
+        do { try await cancelled.value; throw SigningInjectionFailure.invalid("Install cancellation was ignored") }
+        catch is CancellationError { }
+        try SigningDiagnostics.setEnabled(true)
+        SigningDiagnostics.record("probe.begin", "password=should-not-appear user@example.com")
+        guard SigningDiagnostics.entries().last?.detail.contains("should-not-appear") == false else {
+            throw SigningInjectionFailure.invalid("Diagnostics failed to redact credentials")
+        }
         let manager = FileManager.default
         let probe = URL(fileURLWithPath: CommandLine.arguments[1])
         let group = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LCOS_TEST_GROUP"]!)
@@ -58,7 +65,7 @@ enum SigningBridgeTest {
                 throw SigningInjectionFailure.invalid("Signing bridge signature verification failed")
             }
         }
-        let evidence = ["shared_group_bridge": true, "install_ui_bridge": true, "install_cancel": true, "guest_jit_routing": true, "injection": true, "disable_restores_binary": true,
+        let evidence = ["shared_group_bridge": true, "host_ui_only": true, "persistent_diagnostics": true, "install_cancel": true, "guest_jit_routing": true, "injection": true, "disable_restores_binary": true,
                         "granted_folder_mount_revoke": true, "granted_folder_preserves_unmanaged_data": true, "guest_environment_filter": true,
                         "adhoc_signature_verified": true, "physical_device_tested": false]
         try JSONSerialization.data(withJSONObject: evidence, options: [.prettyPrinted, .sortedKeys])

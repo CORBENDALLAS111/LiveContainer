@@ -7,6 +7,7 @@ struct LCHomeScreenView: View {
     let importing: Bool
     let installProgress: Float
     let importIPA: () -> Void
+    var advancedInstall: () -> Void = {}
     let importURL: () -> Void
     let openLink: () -> Void
     let openSideStore: (() -> Void)?
@@ -186,6 +187,7 @@ struct LCHomeScreenView: View {
                 } else {
                     if shared.multiLCStatus != 2 {
                         Menu {
+                            Button("lcos.install.advanced".loc, action: advancedInstall)
                             Button("lc.appList.installFromIpa".loc, action: importIPA)
                             Button("lc.appList.installFromUrl".loc, action: importURL)
                         } label: { chromeIcon("plus") }.disabled(importing)

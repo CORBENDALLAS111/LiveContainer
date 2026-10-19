@@ -4,6 +4,7 @@ import ObjectiveC
 
 enum LCOSSigningInjection {
     static func prepare(at app: URL, bundleIdentifier: String) throws {
+        SigningDiagnostics.record("injection.begin", bundleIdentifier)
         // LiveContainerShared is already loaded by the integrated SideStore host.
         // Standalone SideStore has no shared LiveContainer configuration and stays unchanged.
         guard let type = NSClassFromString("LCSharedUtils"),
@@ -15,5 +16,6 @@ enum LCOSSigningInjection {
         }
         try SigningInjectionApply.prepare(app: app, identifier: bundleIdentifier,
             root: group.appendingPathComponent("LiveContainer/SigningInjection"))
+        SigningDiagnostics.record("injection.end", "Payload validated; ready for signing")
     }
 }

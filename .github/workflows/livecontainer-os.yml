@@ -5,8 +5,8 @@ on:
       build_runner:
         description: 'Standard macOS runner image'
         type: choice
-        options: [macos-latest, macos-15]
-        default: macos-latest
+        options: [macos-15, macos-latest]
+        default: macos-15
       sidestore_run_id:
         description: 'Optional existing run with matching source-built SideStore artifact'
         type: string
@@ -24,7 +24,7 @@ jobs:
   build:
     needs: sidestore
     if: ${{ !cancelled() && (needs.sidestore.result == 'success' || inputs.sidestore_run_id != '') }}
-    runs-on: ${{ inputs.build_runner || 'macos-latest' }}
+    runs-on: ${{ inputs.build_runner || 'macos-15' }}
     timeout-minutes: 45
     env:
       scheme: LiveContainer

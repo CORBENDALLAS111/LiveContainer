@@ -9,4 +9,7 @@ int lc_archive_next(LCArchive *reader, const char **path, int64_t *size, int *di
 int64_t lc_archive_read(LCArchive *reader, void *buffer, size_t count);
 const char *lc_archive_error(LCArchive *reader);
 void lc_archive_close(LCArchive *reader);
+/* Streaming IPA operations. Only regular files/directories; bounded expansion, no links. */
+int lc_ipa_extract(const char *source, const char *destination, char *error, size_t error_size);
+int lc_ipa_pack(const char *source, const char *destination, char *error, size_t error_size);
 #endif

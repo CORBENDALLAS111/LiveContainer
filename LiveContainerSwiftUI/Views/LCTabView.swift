@@ -179,6 +179,7 @@ struct LCTabView: View {
             return
         }
         UserDefaults.standard.removeObject(forKey: "error")
+        SigningDiagnostics.record("previousLaunch.exception", errorStr, level: "error")
         errorInfo = errorStr
         crashReportShow = true
     }
