@@ -12,5 +12,7 @@ let package = Package(
         .testTarget(name: "PackageCoreTests", dependencies: ["PackageCore"], path: "Tests/PackageCoreTests",
                     resources: [.copy("Fixtures")]),
         .target(name: "HomeScreenCore", path: "LiveContainerSwiftUI/HomeScreen/Core"),
-        .testTarget(name: "HomeScreenCoreTests", dependencies: ["HomeScreenCore"], path: "Tests/HomeScreenCoreTests")
+        .testTarget(name: "HomeScreenCoreTests", dependencies: ["HomeScreenCore"], path: "Tests/HomeScreenCoreTests"),
+        .target(name: "AutomationCore", path: "LiveContainerSwiftUI/Automation/Core"),
+        .testTarget(name: "AutomationCoreTests", dependencies: ["AutomationCore"], path: "Tests/AutomationCoreTests")
     ])

@@ -83,6 +83,13 @@ struct LCSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section {
+                    NavigationLink {
+                        LCAutomationSettingsView()
+                    } label: {
+                        Label("lcos.automation.title".loc, systemImage: "play.rectangle.on.rectangle")
+                    }
+                }
                 if sharedModel.multiLCStatus != 2 {
                     Section{
                         if !certificateDataFound {

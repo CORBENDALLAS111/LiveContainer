@@ -234,6 +234,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             LCCustomSortView()
         }
         .onAppear() {
+            LCAutomationCatalog.refresh(sharedModel.apps)
             if !isViewAppeared {
                 if let webpageUrlStr = UserDefaults.standard.string(forKey: "webPageToOpen") {
                     Task { await openWebView(urlString: webpageUrlStr) }
@@ -251,6 +252,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             sharedModel.deepLink = nil
             handleURL(url: link)
         }
+        .onChange(of: sharedModel.apps) { apps in LCAutomationCatalog.refresh(apps) }
         .onDrop(of: [.url], isTargeted: nil) { providers in
             guard let provider = providers.first else { return false }
             _ = provider.loadObject(ofClass: URL.self) { url, error in
@@ -1052,7 +1054,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
     }
 
-    func launchAppWithBundleId(bundleId : String, container : String?, urlStr: String? = nil, forceJIT: Bool? = nil) async {
+    func launchAppWithBundleId(bundleId : String, container : String?, urlStr: String? = nil, forceJIT: Bool? = nil, automationID: String? = nil) async {
         if bundleId == "" {
             return
         }
@@ -1101,8 +1103,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
 
         do {
-            try await appFound.runApp(multitask: nil, containerFolderName: container, urlStr: urlStr, forceJIT: forceJIT)
+            if let automationID {
+                let file = LCAutomationFile.load()
+                guard file.enabled, file.profiles.contains(where: { $0.id.uuidString == automationID && $0.app == bundleId && $0.isValid }),
+                      !appFound.uiDontInjectTweakLoader, !appFound.uiDontLoadTweakLoader else {
+                    throw "lcos.automation.unavailable".loc
+                }
+            }
+            try await appFound.runApp(multitask: automationID == nil ? nil : false, containerFolderName: container, urlStr: urlStr, forceJIT: forceJIT, automationID: automationID)
         } catch {
+            if automationID != nil { UserDefaults.standard.removeObject(forKey: "LCOSAutomationPending") }
             errorInfo = error.localizedDescription
             errorShow = true
         }
@@ -1261,9 +1271,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 var containerName : String? = nil
                 var forceJIT: Bool? = nil
                 var urlStr: String? = nil
+                var automationID: String? = nil
                 for queryItem in components.queryItems ?? [] {
                     if queryItem.name == "bundle-name", let bundleId1 = queryItem.value {
                         bundleId = bundleId1
+                    } else if queryItem.name == "automation" {
+                        automationID = queryItem.value
                     } else if queryItem.name == "container-folder-name", let containerName1 = queryItem.value {
                         containerName = containerName1
                     } else if queryItem.name == "jit", let forceJIT1 = queryItem.value {
@@ -1280,7 +1293,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     }
                 }
                 if let bundleId, bundleId != "ui"{
-                    Task { await launchAppWithBundleId(bundleId: bundleId, container: containerName, urlStr: urlStr, forceJIT: forceJIT) }
+                    Task { await launchAppWithBundleId(bundleId: bundleId, container: containerName, urlStr: urlStr, forceJIT: forceJIT, automationID: automationID) }
                 }
             }
         } else if url.host == "install" {

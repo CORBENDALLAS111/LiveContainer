@@ -176,9 +176,12 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
     NSString* launchBundleId = nil;
     NSString* openUrl = nil;
     NSString* containerFolderName = nil;
+    NSString* automationID = nil;
     for (NSURLQueryItem* queryItem in components.queryItems) {
         if ([queryItem.name isEqualToString:@"bundle-name"]) {
             launchBundleId = queryItem.value;
+        } else if ([queryItem.name isEqualToString:@"automation"]) {
+            automationID = queryItem.value;
         } else if ([queryItem.name isEqualToString:@"open-url"]){
             NSData *decodedData = [[NSData alloc] initWithBase64EncodedString:queryItem.value options:0];
             openUrl = [[NSString alloc] initWithData:decodedData encoding:NSUTF8StringEncoding];
@@ -187,6 +190,13 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         }
     }
     if(launchBundleId) {
+        if (automationID) {
+            if (![[NSUUID alloc] initWithUUIDString:automationID]) return NO;
+            [lcUserDefaults setObject:@{@"id":automationID, @"app":launchBundleId, @"date":@(NSDate.date.timeIntervalSince1970)} forKey:@"LCOSAutomationPending"];
+        } else {
+            [lcUserDefaults removeObjectForKey:@"LCOSAutomationPending"];
+        }
+        [lcUserDefaults synchronize];
         if (openUrl) {
             [lcUserDefaults setObject:openUrl forKey:@"launchAppUrlScheme"];
         }

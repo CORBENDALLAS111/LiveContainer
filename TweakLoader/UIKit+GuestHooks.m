@@ -5,6 +5,7 @@
 #import <LocalAuthentication/LocalAuthentication.h>
 #import "Localization.h"
 #import "LCGuestJITURL.h"
+#import "LCOSAutomation.h"
 #include <unistd.h>
 
 UIInterfaceOrientation LCOrientationLock = UIInterfaceOrientationUnknown;
@@ -310,8 +311,9 @@ void handleLiveContainerLaunch(NSString* bundleName, NSString* containerFolderNa
             if([runningLC hasSuffix:@"liveprocess"]) {
                 runningLC = runningLC.stringByDeletingPathExtension;
             }
-            NSString* urlStr = [NSString stringWithFormat:@"%@://livecontainer-launch?bundle-name=%@&container-folder-name=%@", runningLC, bundleName, containerFolderName];
-            [UIApplication.sharedApplication openURL:[NSURL URLWithString:urlStr] options:@{} completionHandler:nil];
+            NSURLComponents *forward = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+            forward.scheme = runningLC;
+            [UIApplication.sharedApplication openURL:forward.URL options:@{} completionHandler:nil];
             return;
         }
         
@@ -445,10 +447,13 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         NSString* bundleName = nil;
         NSString* openUrl = nil;
         NSString* containerFolderName = nil;
+        NSString* automationID = nil;
         NSURLComponents* components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
         for (NSURLQueryItem* queryItem in components.queryItems) {
             if ([queryItem.name isEqualToString:@"bundle-name"]) {
                 bundleName = queryItem.value;
+            } else if ([queryItem.name isEqualToString:@"automation"]) {
+                automationID = queryItem.value;
             } else if ([queryItem.name isEqualToString:@"open-url"]) {
                 NSData *decodedData = [[NSData alloc] initWithBase64EncodedString:queryItem.value options:0];
                 openUrl = [[NSString alloc] initWithData:decodedData encoding:NSUTF8StringEncoding];
@@ -470,6 +475,10 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         // current bundlename and container folder name matches OR sidestore is running and we are launching builtinSideStore
         if (([bundleName isEqualToString:NSBundle.mainBundle.bundlePath.lastPathComponent] && [containerId isEqualToString:containerFolderName]) ||
             (NSUserDefaults.isSideStore && [bundleName isEqualToString:@"builtinSideStore"])) {
+            if (automationID) {
+                LCOSStartAutomation(automationID);
+                return LCControlAppURLHandlingStop;
+            }
             if(openUrl) {
                 if([openUrl hasPrefix:@"file:"]) {
                     resolveLaunchExtensionFileBookmark();

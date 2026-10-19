@@ -216,7 +216,7 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     // You should let LCAppModel.runApp to decide whether to run in multitask mode, but you may override the multitask parameter if necessary
-    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil) async throws{
+    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil, automationID: String? = nil) async throws{
         if isAppRunning {
             return
         }
@@ -327,6 +327,12 @@ class LCAppModel: ObservableObject, Hashable {
             }}
         }
         try await signApp(force: false)
+        if let automationID {
+            UserDefaults.standard.set(["id": automationID, "app": appInfo.relativeBundlePath ?? "", "date": Date().timeIntervalSince1970], forKey: "LCOSAutomationPending")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "LCOSAutomationPending")
+        }
+        UserDefaults.standard.synchronize()
         
         if let bundleIdOverride {
             UserDefaults.standard.set(bundleIdOverride, forKey: "selected")

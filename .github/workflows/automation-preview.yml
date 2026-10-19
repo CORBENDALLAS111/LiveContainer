@@ -1,0 +1,26 @@
+name: Automations - Native Runner Tests
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/**']
+    paths: ['LiveContainer/LCOSAppIntents.swift', 'LiveContainerSwiftUI/Automation/**', 'TweakLoader/LCOSAutomation.*', 'Tests/AutomationPreview/**', 'scripts/test_automation_simulator.py', '.github/workflows/automation-preview.yml']
+permissions:
+  contents: read
+jobs:
+  runner:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - name: Exercise actual guest runner with controlled UIKit buttons
+        run: python3 scripts/test_automation_simulator.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-automation-tests
+          path: artifacts/automation-preview/
