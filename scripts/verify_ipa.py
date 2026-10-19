@@ -58,10 +58,12 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                 raise ValueError('Missing extension bundle ID correction provenance')
             verify_embedded_sidebackup(archive)
         if automations:
-            metadata = [name for name in names if name.startswith(root + 'Metadata.appintents/') and not name.endswith('/')]
-            contents = b''.join(archive.read(name) for name in metadata)
-            if not metadata or any(intent not in contents for intent in [b'LCLaunchGuestIntent', b'LCRunAutomationIntent']):
+            metadata = json.loads(archive.read(root + 'Metadata.appintents/extract.actionsdata'))
+            actions = metadata.get('actions', {})
+            if any(intent not in actions for intent in ['LCLaunchGuestIntent', 'LCRunAutomationIntent']):
                 raise ValueError('Main application lacks discoverable Shortcuts action metadata')
+            if integrated and 'RefreshAllIntent' not in actions:
+                raise ValueError('Integrated application lost SideStore refresh action metadata')
         return {'file': path.name, 'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
                 'bundle': info['CFBundleIdentifier'], 'signing_injection': signing_injection, 'integrated': integrated, 'entries': len(names),
                 'source_commit': source_commit, 'automation_metadata': automations,

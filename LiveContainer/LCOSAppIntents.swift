@@ -79,7 +79,7 @@ struct LCLaunchGuestIntent: AppIntent {
     static var openAppWhenRun: Bool = true
     static var parameterSummary: some ParameterSummary { Summary("Launch \(\.$app)") }
     @MainActor func perform() async throws -> some IntentResult {
-        guard await UIApplication.shared.open(try LCShortcutCatalog.url(app: app.id)) else { throw LCShortcutError.unavailable }
+        guard await UIApplication.shared.open(try LCShortcutCatalog.url(app: app.id)) else { throw LCShortcutError.cannotOpen }
         return .result()
     }
 }
@@ -102,7 +102,13 @@ struct LCRunAutomationIntent: AppIntent {
 @available(iOS 16.0, *)
 enum LCShortcutError: Error, CustomLocalizedStringResourceConvertible {
     case unavailable
-    var localizedStringResource: LocalizedStringResource { "Enable automations in LiveContainer Settings and check that the scenario still exists." }
+    case cannotOpen
+    var localizedStringResource: LocalizedStringResource {
+        switch self {
+        case .unavailable: "Enable automations in LiveContainer Settings and check that the scenario still exists."
+        case .cannotOpen: "LiveContainer could not open the launch link. Open the app once and try again."
+        }
+    }
 }
 @available(iOS 16.0, *)
 struct LCOSAppShortcuts: AppShortcutsProvider {

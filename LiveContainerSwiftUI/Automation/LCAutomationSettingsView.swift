@@ -70,7 +70,7 @@ struct LCAutomationSettingsView: View {
     private func save() {
         file.scheme = LCUtils.appUrlScheme() ?? "livecontainer"
         // Hidden applications are deliberately not advertised to Siri/Shortcuts.
-        file.apps = sharedModel.apps.filter { !$0.uiIsLocked }.compactMap {
+        file.apps = sharedModel.apps.filter { !$0.uiIsLocked && !$0.appInfo.isHidden }.compactMap {
             guard let id = $0.appInfo.relativeBundlePath else { return nil }
             return .init(id: id, name: $0.displayName)
         }
@@ -92,7 +92,7 @@ private struct LCAutomationEditor: View {
                 TextField("lcos.automation.name".loc, text: $draft.name)
                 Picker("lcos.automation.app".loc, selection: $draft.app) {
                     Text("lc.common.none".loc).tag("")
-                    ForEach(apps, id: \.bundleIdentifier) { app in
+                    ForEach(apps, id: \.self) { app in
                         Text(app.displayName).tag(app.appInfo.relativeBundlePath ?? "")
                     }
                 }

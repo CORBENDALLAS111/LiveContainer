@@ -28,6 +28,7 @@ jobs:
       - name: Test package core
         run: |
           set -o pipefail
+          python3 -m unittest discover -s Tests -p test_merge_app_intents.py
           swift test 2>&1 | tee package-tests.log
       - name: Archive using upstream configuration
         run: |
