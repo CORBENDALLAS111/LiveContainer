@@ -80,7 +80,9 @@ struct LCAdvancedInstallView: View {
                 let image = UIImage(cgImage: thumbnail)
                 let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
                 icon = UIGraphicsImageRenderer(size: CGSize(width: 180, height: 180), format: format).pngData { _ in
-                    image.draw(in: CGRect(x: 0, y: 0, width: 180, height: 180))
+                    let scale = max(180 / image.size.width, 180 / image.size.height)
+                    let width = image.size.width * scale, height = image.size.height * scale
+                    image.draw(in: CGRect(x: (180 - width) / 2, y: (180 - height) / 2, width: width, height: height))
                 }
             } catch { failure = error.localizedDescription }
         }

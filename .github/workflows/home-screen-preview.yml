@@ -22,7 +22,7 @@ permissions:
   contents: read
 jobs:
   preview:
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
