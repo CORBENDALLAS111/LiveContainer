@@ -7,7 +7,7 @@ import plistlib
 import zipfile
 from verify_sidebackup import verify_embedded_sidebackup
 
-def verify(path, integrated=False, source_commit=None, signing_injection=False):
+def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False):
     path = pathlib.Path(path)
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError('IPA is absent or empty')
@@ -57,9 +57,14 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False):
             if not manifest.get('extension_ids', {}).get('validate_before_signing') or 'SigningBundleIdentifiers.swift' not in manifest.get('overlay', {}):
                 raise ValueError('Missing extension bundle ID correction provenance')
             verify_embedded_sidebackup(archive)
+        if automations:
+            metadata = [name for name in names if name.startswith(root + 'Metadata.appintents/') and not name.endswith('/')]
+            contents = b''.join(archive.read(name) for name in metadata)
+            if not metadata or any(intent not in contents for intent in [b'LCLaunchGuestIntent', b'LCRunAutomationIntent']):
+                raise ValueError('Main application lacks discoverable Shortcuts action metadata')
         return {'file': path.name, 'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
                 'bundle': info['CFBundleIdentifier'], 'signing_injection': signing_injection, 'integrated': integrated, 'entries': len(names),
-                'source_commit': source_commit,
+                'source_commit': source_commit, 'automation_metadata': automations,
                 'verification': 'ZIP integrity and expected components only', 'device_tested': False}
 
 if __name__ == '__main__':
@@ -67,10 +72,11 @@ if __name__ == '__main__':
     parser.add_argument('ipa')
     parser.add_argument('--integrated', action='store_true')
     parser.add_argument('--signing-injection', action='store_true')
+    parser.add_argument('--automations', action='store_true')
     parser.add_argument('--output')
     parser.add_argument('--source-commit')
     args = parser.parse_args()
-    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection)
+    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection, args.automations)
     result = json.dumps(evidence, indent=2)
     if args.output:
         pathlib.Path(args.output).write_text(result + '\n', encoding='utf-8')

@@ -39,6 +39,12 @@ static NSDictionary *LCOSReadAutomationFile(void) {
             if (!window.hidden && window.alpha > 0.01 && window.windowLevel == UIWindowLevelNormal) [windows addObject:window];
         }
     }
+    if (windows.count == 0) {
+        // Legacy UIKit guests do not necessarily create UIWindowScene objects.
+        for (UIWindow *window in UIApplication.sharedApplication.windows.reverseObjectEnumerator) {
+            if (!window.hidden && window.alpha > 0.01 && window.windowLevel == UIWindowLevelNormal) [windows addObject:window];
+        }
+    }
     return windows;
 }
 - (BOOL)activate:(UIView *)view {
