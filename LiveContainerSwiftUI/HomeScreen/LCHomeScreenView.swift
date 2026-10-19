@@ -178,6 +178,14 @@ struct LCHomeScreenView: View {
     private var header: some View {
         LCGlassGroup {
             HStack(spacing: 12) {
+                if !editing && shared.multiLCStatus != 2 {
+                    Menu {
+                        Button("lcos.install.advanced".loc, action: advancedInstall)
+                        Button("lc.appList.installFromIpa".loc, action: importIPA)
+                        Button("lc.appList.installFromUrl".loc, action: importURL)
+                    } label: { chromeIcon("plus") }.disabled(importing)
+                    .accessibilityLabel("lc.appList.installFromIpa".loc)
+                }
                 Text("lc.appList.myApps".loc).font(.title2.weight(.bold))
                 Spacer()
                 if editing {
@@ -185,14 +193,6 @@ struct LCHomeScreenView: View {
                         .font(.body.weight(.semibold)).padding(.horizontal, 16).frame(height: 44)
                         .lcGlass(in: Capsule(), interactive: true)
                 } else {
-                    if shared.multiLCStatus != 2 {
-                        Menu {
-                            Button("lcos.install.advanced".loc, action: advancedInstall)
-                            Button("lc.appList.installFromIpa".loc, action: importIPA)
-                            Button("lc.appList.installFromUrl".loc, action: importURL)
-                        } label: { chromeIcon("plus") }.disabled(importing)
-                        .accessibilityLabel("lc.appList.installFromIpa".loc)
-                    }
                     Menu {
                         Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
                         Button("lcos.home.edit".loc) { startEditing() }
