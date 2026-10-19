@@ -1,4 +1,4 @@
-"""Compile and exercise the actual guest runner with controlled UIKit buttons, not touch injection."""
+"""Compile and exercise the actual guest runner with UIKit, gesture, SwiftUI and recording fixtures."""
 import json
 import os
 import pathlib
@@ -15,10 +15,18 @@ sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-
 subprocess.run(['xcrun', 'swiftc', '-typecheck', '-parse-as-library', '-swift-version', '5',
                 '-target', 'arm64-apple-ios15.0-simulator', '-sdk', sdk,
                 str(root / 'LiveContainer/LCOSAppIntents.swift')], check=True)
-subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-target', 'arm64-apple-ios16.0-simulator',
-                '-isysroot', sdk, '-I', str(root / 'LiveContainer'),
-                str(root / 'Tests/AutomationPreview/Main.m'), str(root / 'TweakLoader/LCOSAutomation.m'),
-                '-framework', 'UIKit', '-framework', 'Foundation', '-o', str(app / 'LCOSAutomationPreview')], check=True)
+swift_object = out / 'SwiftUIFixture.o'
+subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-emit-object', '-target', 'arm64-apple-ios16.0-simulator',
+                '-sdk', sdk, str(root / 'Tests/AutomationPreview/SwiftUIFixture.swift'), '-o', str(swift_object)], check=True)
+objects = [swift_object]
+for source in ['Tests/AutomationPreview/Main.m', 'TweakLoader/LCOSAutomation.m']:
+    object_file = out / (pathlib.Path(source).stem + '.o')
+    subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-fmodules', '-target', 'arm64-apple-ios16.0-simulator',
+                    '-isysroot', sdk, '-I', str(root / 'LiveContainer'), str(root / source), '-o', str(object_file)], check=True)
+    objects.append(object_file)
+subprocess.run(['xcrun', 'swiftc', '-target', 'arm64-apple-ios16.0-simulator', '-sdk', sdk,
+                *map(str, objects), '-framework', 'SwiftUI', '-framework', 'UIKit', '-framework', 'Foundation',
+                '-o', str(app / 'LCOSAutomationPreview')], check=True)
 bundle = 'org.example.lcosautomationpreview'
 (app / 'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': bundle,
     'CFBundleExecutable': 'LCOSAutomationPreview', 'CFBundleName': 'Automation Runner', 'CFBundleVersion': '1',
@@ -47,7 +55,7 @@ try:
     shutil.copyfile(evidence, out / 'automation-evidence.json')
     result = json.loads(evidence.read_text())
     print(json.dumps(result, indent=2))
-    assert all(result[key] is True for key in ['actual_uikit_button_and_point', 'background_cancellation', 'disabled_does_not_execute'])
+    assert all(result[key] is True for key in ['actual_uikit_button_and_point', 'raw_touch_gesture', 'swiftui_point', 'recorded_profile_replay', 'background_cancellation', 'disabled_does_not_execute'])
     subprocess.run(['xcrun', 'simctl', 'io', device, 'screenshot', str(out / 'runner.png')], check=True)
 finally:
     subprocess.run(['xcrun', 'simctl', 'shutdown', device], capture_output=True)

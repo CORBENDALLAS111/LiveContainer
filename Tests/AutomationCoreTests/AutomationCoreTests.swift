@@ -3,6 +3,17 @@ import XCTest
 @testable import AutomationCore
 
 final class AutomationCoreTests: XCTestCase {
+    func testRecordingOptionPreservesOlderScenarios() throws {
+        let original = LCAutomationFile(enabled: true, profiles: [LCAutomation(name: "Existing", app: "Test.app")])
+        let old = try JSONEncoder().encode(original)
+        var decoded = try JSONDecoder().decode(LCAutomationFile.self, from: old)
+        XCTAssertNil(decoded.recordAtLaunch)
+        XCTAssertEqual(decoded.profiles, original.profiles)
+        decoded.recordAtLaunch = true
+        let updated = try JSONDecoder().decode(LCAutomationFile.self, from: JSONEncoder().encode(decoded))
+        XCTAssertTrue(updated.recordAtLaunch == true)
+        XCTAssertEqual(updated.profiles, original.profiles)
+    }
     func testSavedScenarioRoundTripAndURLIsolation() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

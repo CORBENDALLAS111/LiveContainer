@@ -19,7 +19,12 @@ struct LCAutomationSettingsView: View {
             Section {
                 Toggle("lcos.automation.enable".loc, isOn: $file.enabled)
                     .onChange(of: file.enabled) { _ in save() }
+                Toggle("lcos.automation.recordAtLaunch".loc, isOn: Binding(get: { file.recordAtLaunch ?? false }, set: { file.recordAtLaunch = $0; save() }))
+                    .disabled(!file.enabled)
             } footer: { Text("lcos.automation.limits".loc) }
+            if file.recordAtLaunch == true {
+                Section { Text("lcos.automation.recordHelp".loc).font(.footnote).foregroundStyle(.secondary) }
+            }
             Section {
                 ForEach(file.profiles) { profile in
                     Button { editing = profile } label: {

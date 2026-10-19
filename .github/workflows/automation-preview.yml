@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/**']
-    paths: ['LiveContainer/LCOSAppIntents.swift', 'LiveContainerSwiftUI/Automation/**', 'TweakLoader/LCOSAutomation.*', 'Tests/AutomationPreview/**', 'scripts/test_automation_simulator.py', '.github/workflows/automation-preview.yml']
+    paths: ['LiveContainer/LCOSAppIntents.swift', 'LiveContainerSwiftUI/Automation/**', 'TweakLoader/LCOSAutomation.*', 'TweakLoader/LCOSTouch.h', 'TweakLoader/LCOSRecorder.h', 'Tests/AutomationPreview/**', 'scripts/test_automation_simulator.py', '.github/workflows/automation-preview.yml']
 permissions:
   contents: read
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.2'
-      - name: Exercise actual guest runner with controlled UIKit buttons
+      - name: Exercise real touches, SwiftUI and record/replay
         run: python3 scripts/test_automation_simulator.py
       - uses: actions/upload-artifact@v4
         if: always()

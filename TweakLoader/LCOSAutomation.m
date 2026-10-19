@@ -2,6 +2,7 @@
 #import <UIKit/UIKit.h>
 #import "../LiveContainer/utils.h"
 #import <math.h>
+#import "LCOSTouch.h"
 
 @interface LCOSAutomationRunner : NSObject
 @property(nonatomic) NSUInteger generation;
@@ -49,6 +50,8 @@ static NSDictionary *LCOSReadAutomationFile(void) {
             if (!window.hidden && window.alpha > 0.01 && window.windowLevel == UIWindowLevelNormal) [windows addObject:window];
         }
     }
+    NSIndexSet *key = [windows indexesOfObjectsPassingTest:^BOOL(UIWindow *window, NSUInteger index, BOOL *stop) { return window.isKeyWindow; }];
+    if (key.count) { UIWindow *first = windows[key.firstIndex]; [windows removeObjectAtIndex:key.firstIndex]; [windows insertObject:first atIndex:0]; }
     return windows;
 }
 - (BOOL)activate:(UIView *)view {
@@ -92,9 +95,12 @@ static NSDictionary *LCOSReadAutomationFile(void) {
         } else if ([kind isEqualToString:@"point"]) {
             UIWindow *window = self.windows.firstObject;
             CGPoint point = CGPointMake(window.bounds.size.width * [step[@"x"] doubleValue], window.bounds.size.height * [step[@"y"] doubleValue]);
-            UIView *view = [window hitTest:point withEvent:nil];
-            while (view && view != window && ![view isKindOfClass:UIControl.class] && !view.isAccessibilityElement) view = view.superview;
-            if (view && view != window) success = [self activate:view];
+            LCOSTapAtPoint(window, point, ^(BOOL delivered) {
+                if (generation != self.generation) return;
+                if (!delivered) { [self finish:LCOSAutomationText(@"Touch delivery is unavailable on this iOS version.", @"Доставка касания недоступна в этой версии iOS.")]; return; }
+                self.nextStep++; [self schedule];
+            });
+            return;
         }
         if (!success) {
             [self finish:[NSString stringWithFormat:LCOSAutomationText(@"Step %lu: button unavailable, ambiguous or unsupported.", @"Шаг %lu: кнопка не найдена, неоднозначна или не поддерживается."), (unsigned long)self.nextStep + 1]]; return;
@@ -104,6 +110,7 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     });
 }
 - (void)start:(NSString *)identifier {
+    LCOSStopRecording();
     NSDictionary *file = LCOSReadAutomationFile();
     if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
         ![identifier isKindOfClass:NSString.class] || ![file[@"enabled"] isEqual:@YES] || ![[NSUUID alloc] initWithUUIDString:identifier]) return;
@@ -146,6 +153,8 @@ static NSDictionary *LCOSReadAutomationFile(void) {
     self.stopButton = stop; [window addSubview:stop]; [self schedule];
 }
 @end
+
+#import "LCOSRecorder.h"
 
 static LCOSAutomationRunner *runner;
 void LCOSStartAutomation(NSString *identifier) {

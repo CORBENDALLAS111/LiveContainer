@@ -1,0 +1,6 @@
+Touch synthesis portions adapted from KIF.
+Copyright 2011-2016 Square, Inc. and KIF contributors.
+Licensed under the Apache License, Version 2.0.
+https://github.com/kif-framework/KIF
+Modified for LiveContainer: process-local delivery, runtime checks and asynchronous completion.
+See KIF-Apache-2.0.txt.

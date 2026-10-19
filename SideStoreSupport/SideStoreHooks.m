@@ -8,6 +8,7 @@
 #include "../LiveContainer/LCSharedUtils.h"
 #include "XPCServer.h"
 #import <sys/sysctl.h>
+#import <dlfcn.h>
 @import UserNotifications;
 @import UIKit;
 
@@ -138,17 +139,33 @@ static void SSSideloadApp(UIViewController *controller, SEL selector, UIBarButto
     }]];
     [menu addAction:[UIAlertAction actionWithTitle:localize(@"lcos.install.advanced", @"Advanced Install") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
       [controller dismissViewControllerAnimated:YES completion:^{
-        NSURL *group = LCSharedUtils.appGroupPath;
-        NSURL *request = [group URLByAppendingPathComponent:@"LiveContainer/AdvancedInstallRequest.plist"];
-        NSError *error = nil;
-        BOOL ready = group && [NSFileManager.defaultManager createDirectoryAtURL:request.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&error];
-        NSDictionary *values = @{@"date": NSDate.date, @"bundleIdentifier": host.bundleIdentifier ?: @""};
-        NSData *data = ready ? [NSPropertyListSerialization dataWithPropertyList:values format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error] : nil;
-        if (data && [data writeToURL:request options:NSDataWritingAtomic error:&error]) {
-            // Reuse the existing escape/relaunch boundary, without loading the host UI in SideStore.
-            [LCSharedUtils launchToGuestAppWithClassicMode:0];
+        Class type = NSClassFromString(@"LCOSAdvancedInstallPresenter");
+        if (!type) {
+            NSArray<NSBundle *> *bundles = @[NSUserDefaults.lcMainBundle, [NSBundle bundleForClass:LCSharedUtils.class]];
+            for (NSBundle *bundle in bundles) {
+                NSURL *base = bundle.bundleURL;
+                for (int level = 0; level < 5 && !type; level++, base = base.URLByDeletingLastPathComponent) {
+                    for (NSString *relative in @[@"Frameworks/LiveContainerSwiftUI.framework/LiveContainerSwiftUI", @"LiveContainerSwiftUI.framework/LiveContainerSwiftUI"]) {
+                        NSString *path = [base URLByAppendingPathComponent:relative].path;
+                        if ([NSFileManager.defaultManager fileExistsAtPath:path] && dlopen(path.UTF8String, RTLD_LAZY | RTLD_GLOBAL))
+                            type = NSClassFromString(@"LCOSAdvancedInstallPresenter");
+                        if (type) break;
+                    }
+                }
+            }
+        }
+        SEL present = NSSelectorFromString(@"presentFrom:completion:");
+        Method method = type ? class_getClassMethod(type, present) : nil;
+        if (method) {
+            void (*show)(id, SEL, UIViewController *, void (^)(NSURL *)) = (void *)method_getImplementation(method);
+            show(type, present, controller, ^(NSURL *ipa) {
+                if (!ipa) return;
+                id<UIApplicationDelegate> delegate = UIApplication.sharedApplication.delegate;
+                if ([delegate respondsToSelector:@selector(application:openURL:options:)])
+                    [delegate application:UIApplication.sharedApplication openURL:ipa options:@{}];
+            });
         } else {
-            UIAlertController *failure = [UIAlertController alertControllerWithTitle:localize(@"lc.common.error", @"Error") message:error.localizedDescription ?: @"Shared storage unavailable" preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertController *failure = [UIAlertController alertControllerWithTitle:localize(@"lc.common.error", @"Error") message:@"Advanced installation could not be loaded. Please use the complete integrated IPA." preferredStyle:UIAlertControllerStyleAlert];
             [failure addAction:[UIAlertAction actionWithTitle:localize(@"lc.common.ok", @"OK") style:UIAlertActionStyleDefault handler:nil]];
             [controller presentViewController:failure animated:YES completion:nil];
         }
@@ -240,12 +257,12 @@ void installSideStoreHooks(void) {
     Method altStoreSourceURLMethod = class_getClassMethod(PrivClass(Source), @selector(altStoreSourceURL));
     method_setImplementation(altStoreSourceURLMethod, (IMP)SideStoreSource_hook_altStoreSourceURL);
     
-    if (!NSUserDefaults.isLiveProcess) {
         Method sideload = class_getInstanceMethod(PrivClass(MyAppsViewController), NSSelectorFromString(@"sideloadApp:"));
         if (sideload) {
             SSOriginalSideloadApp = (void (*)(UIViewController *, SEL, UIBarButtonItem *))method_getImplementation(sideload);
             method_setImplementation(sideload, (IMP)SSSideloadApp);
         }
+    if (!NSUserDefaults.isLiveProcess) {
         // add escape button
         Method viewDidLoadMethod = class_getInstanceMethod(PrivClass(MyAppsViewController), @selector(viewDidLoad));
         SideStoreMyAppsViewController_orig_viewDidload = (void (*)(UICollectionViewController *, SEL))method_getImplementation(viewDidLoadMethod);

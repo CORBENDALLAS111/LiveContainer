@@ -41,10 +41,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State var didAppear = false
     // ipa choosing stuff
     @State var choosingIPA = false
-    @State private var advancedInstall = false
-    @State private var advancedFromSideStore = false
-    @State private var preparedInstall: URL?
-    @State private var preparedForSideStore = false
     @State var errorShow = false
     @State var errorInfo = ""
 
@@ -234,25 +230,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         .sheet(isPresented: $helpPresent) {
             LCHelpView(isPresent: $helpPresent)
         }
-        .sheet(isPresented: $advancedInstall, onDismiss: {
-            guard let url = preparedInstall else { return }
-            preparedInstall = nil
-            if preparedForSideStore {
-                SigningDiagnostics.record("advanced.handoff.sidestore", "Opening prepared IPA")
-                LCUtils.openSideStore(delegate: self, urlStr: url.absoluteString)
-            } else {
-                Task { await startInstallApp(url) }
-            }
-        }) {
-            LCAdvancedInstallView(preferSideStore: advancedFromSideStore,
-                                  installInContainer: { url in preparedForSideStore = false; preparedInstall = url },
-                                  installWithSideStore: { url in preparedForSideStore = true; preparedInstall = url })
-        }
         .sheet(isPresented: $customSortViewPresent) {
             LCCustomSortView()
         }
         .onAppear() {
-            if LCAdvancedInstallRequest.consume() { advancedFromSideStore = true; advancedInstall = true }
             LCAutomationCatalog.refresh(sharedModel.apps)
             if !isViewAppeared {
                 if let webpageUrlStr = UserDefaults.standard.string(forKey: "webPageToOpen") {
@@ -326,7 +307,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     if sharedModel.multiLCStatus != 2 {
                         if !installprogressVisible {
                             Menu {
-                                Button("lcos.install.advanced".loc, systemImage: "slider.horizontal.3") { advancedFromSideStore = false; advancedInstall = true }
 
                                 Button("lc.appList.installFromIpa".loc, systemImage: "doc.badge.plus", action: {
                                     choosingIPA = true
@@ -412,7 +392,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         LCHomeScreenView(apps: sortedApps, delegate: self, importing: installprogressVisible,
                          installProgress: installProgressPercentage,
                          importIPA: { choosingIPA = true },
-                         advancedInstall: { advancedFromSideStore = false; advancedInstall = true },
                          importURL: { Task { await startInstallFromUrl() } },
                          openLink: { Task { await onOpenWebViewTapped() } },
                          openSideStore: sideStoreAction)

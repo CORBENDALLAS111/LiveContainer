@@ -1,12 +1,10 @@
 # Advanced Install and installation diagnostics
 
-Open **Applications → + → Advanced Install**. Select an original IPA, change its display name,
-bundle identifier or icon, and configure a per-identifier dylib/DEB preset. Choose LiveContainer
-to import into the container, or SideStore to sign and install a separate system application.
-This does not add signing entitlements, kernel privileges or extra Apple account app slots.
-The embedded SideStore's top-left + menu also offers Advanced Install in its standard launch
-mode. It returns to the host editor and preselects SideStore as the installation destination.
-When using a separate LiveProcess window, use the host application's + menu.
+Open the embedded **SideStore → + → Advanced Install**. The editor is presented inside
+SideStore in standard and LiveProcess modes. Choose an original IPA, edit the name, icon
+or bundle identifier, configure dylib/DEB injection, and continue SideStore signing.
+LiveContainer's own + menu keeps ordinary container imports; its desktop + remains on the right.
+No redirect to the LiveContainer desktop is used. No additional entitlements or Apple app slots are granted.
 
 The editor streams ZIP contents to a unique shared workspace, preserves executable permissions,
 rejects traversal, links, duplicate files, encrypted entries and excessive archive expansion.
@@ -34,5 +32,5 @@ memory-pressure termination or a forced quit; it is not an iOS crash report.
 
 The picker now retains an owned copy while its security scope is valid, dismisses Files before
 showing confirmation, and reports copy failures instead of passing an unstable URL downstream.
-The guest no longer dynamically loads LiveContainerSwiftUI for every manual installation.
+The guest only loads the shared editor when Advanced Install is explicitly requested; ordinary installs do not load it.
 These are concrete hardening changes; the user's physical-device crash still requires retesting.

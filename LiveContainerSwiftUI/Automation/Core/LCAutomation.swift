@@ -40,6 +40,7 @@ struct LCAutomation: Codable, Identifiable, Equatable {
 struct LCAutomationFile: Codable {
     var version = 1
     var enabled = false
+    var recordAtLaunch: Bool?
     var scheme = "livecontainer"
     var apps: [App] = []
     var profiles: [LCAutomation] = []
