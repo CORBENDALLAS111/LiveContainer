@@ -36,7 +36,9 @@ final class AdvancedInstallTests: XCTestCase {
         XCTAssertEqual(lc_ipa_pack(root.path, output.path, &error, error.count), 0, String(cString: error))
         let destination = root.appendingPathComponent("RoundTrip")
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        XCTAssertEqual(lc_ipa_extract(output.path, destination.path, &error, error.count), 0, String(cString: error))
+        let alias = root.appendingPathComponent("DestinationAlias")
+        try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: destination.path)
+        XCTAssertEqual(lc_ipa_extract(output.path, alias.path, &error, error.count), 0, String(cString: error))
         XCTAssertEqual(try SigningAdvanced.inspect(destination).identifier, app.identifier)
         let permissions = try FileManager.default.attributesOfItem(atPath: destination.appendingPathComponent("Payload/Test.app/Test").path)[.posixPermissions] as? NSNumber
         XCTAssertEqual(permissions?.intValue, 0o755)

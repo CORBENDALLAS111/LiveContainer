@@ -98,6 +98,12 @@ static int ipa_parents(char *path) {
     return 0;
 }
 int lc_ipa_extract(const char *source, const char *destination, char *error, size_t error_size) {
+    /* Apple temporary/app-group paths can contain the system /var -> /private/var alias.
+       Resolve the caller-owned root once; reject links in every archive-controlled component. */
+    char resolved_root[PATH_MAX];
+    struct stat root_info;
+    if (!realpath(destination, resolved_root) || lstat(resolved_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode))
+        return ipa_error(error, error_size, "IPA destination is not an existing directory");
     struct archive *a = archive_read_new();
     archive_read_support_format_zip(a);
     archive_read_support_filter_none(a);
@@ -114,7 +120,7 @@ int lc_ipa_extract(const char *source, const char *destination, char *error, siz
         if (++entries > 50000 || !ipa_safe_path(name) || archive_entry_symlink(entry) || archive_entry_hardlink(entry) ||
             (kind != AE_IFREG && kind != AE_IFDIR) || archive_entry_is_encrypted(entry) == 1 ||
             archive_entry_size(entry) > 1024LL * 1024 * 1024 ||
-            snprintf(path, sizeof(path), "%s/%s", destination, name) >= (int)sizeof(path) || ipa_parents(path) != 0) {
+            snprintf(path, sizeof(path), "%s/%s", resolved_root, name) >= (int)sizeof(path) || ipa_parents(path) != 0) {
             result = ipa_error(error, error_size, "Unsafe, encrypted, linked or oversized IPA entry"); break;
         }
         if (kind == AE_IFDIR) {
