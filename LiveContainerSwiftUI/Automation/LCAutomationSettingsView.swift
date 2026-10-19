@@ -124,7 +124,7 @@ private struct LCAutomationEditor: View {
                 footer: { Text("lcos.automation.stepHelp".loc) }
             Section {
                 Button("lcos.automation.copyURL".loc) {
-                    if let scheme = LCSharedUtils.lcUrlSchemes()?.first {
+                    if let scheme = LCUtils.appUrlScheme() {
                         UIPasteboard.general.url = draft.launchURL(scheme: scheme)
                     }
                 }.disabled(!draft.isValid)
