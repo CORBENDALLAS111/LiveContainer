@@ -1166,7 +1166,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         if LCUtils.appGroupUserDefault.integer(forKey: "LCJITEnablerType") == JITEnablerType.builtIn.rawValue {
             await MainActor.run {
                 do {
-                    try LifeBuiltInJIT.send(pid: pid, script: script) { message in
+                    try LifeBuiltInJIT.send(pid: pid, script: script, failure: { message in
+                        self.errorInfo = message; self.errorShow = true
+                    }) { message in
                         self.jitLog += message + "\n"
                         NSLog("[LifeJIT] %@", message)
                     }

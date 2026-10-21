@@ -28,6 +28,8 @@ subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-application-exte
 (helper / 'Info.plist').write_bytes(plistlib.dumps({
     'CFBundleIdentifier': info['CFBundleIdentifier'] + '.LifeJITHelper', 'CFBundleExecutable': 'LifeJITHelper',
     'CFBundleName': 'LifeJITHelper', 'CFBundleDisplayName': 'LifeContainer+ JIT', 'CFBundlePackageType': 'XPC!',
+    'CFBundleInfoDictionaryVersion': '6.0', 'CFBundleSupportedPlatforms': ['iPhoneOS'],
+    'DTPlatformName': 'iphoneos', 'LSRequiresIPhoneOS': True,
     'CFBundleShortVersionString': info['CFBundleShortVersionString'], 'CFBundleVersion': info['CFBundleVersion'],
     'MinimumOSVersion': '17.4', 'UIDeviceFamily': [1, 2],
     'NSExtension': {'NSExtensionPointIdentifier': 'com.apple.ar.viewer', 'NSExtensionPrincipalClass': 'LifeJITHandler',

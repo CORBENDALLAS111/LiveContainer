@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "life.jit.busy" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "A JIT operation is already running. Wait for it to finish."}}, "ru": {"stringUnit": {"state": "translated", "value": "Сеанс JIT уже выполняется. Дождись его завершения."}}}},
     "life.market.title" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Tweak Marketplace"}}, "ru": {"stringUnit": {"state": "translated", "value": "Каталог твиков"}}}},
     "life.market.subtitle" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Repositories. App tweaks. One place."}}, "ru": {"stringUnit": {"state": "translated", "value": "Репозитории и твики для приложений."}}}},
     "life.market.sources" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Repositories"}}, "ru": {"stringUnit": {"state": "translated", "value": "Репозитории"}}}},

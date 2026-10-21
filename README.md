@@ -4,25 +4,25 @@
    
 
 <div align="center">
-  <h1><b>LiveContainer</b></h1>
+  <h1><b>LifeContainer+</b></h1>
   <p><i>An app launcher that runs iOS apps without actually installing them! </i></p>
 </div>
 <h6 align="center">
 
 Crowdin Project: [![Crowdin](https://badges.crowdin.net/livecontainer/localized.svg)](https://crowdin.com/project/livecontainer) &nbsp;| &nbsp; Documentation:[livecontainer.github.io](https://livecontainer.github.io/docs/intro)
 
-# LiveContainer OS — development branch
+# LifeContainer+ — development branch
 
 This fork adds a native app grid, folders and local Debian tweak management to official LiveContainer.
 Switch between grid and list in **Settings → Interface → App Grid**. Both keep the normal tab bar.
 The grid has black/white theme backgrounds, native drag sessions, persistent folders and Liquid Glass on iOS 26+.
-Configure **Settings → SideStore Injection** to apply validated DEB/dylib payloads before the integrated SideStore signs apps.
+Advanced installation and signing injection are available **inside SideStore**, using validated DEB/dylib payloads before signing.
 See [the signing integration](Integrations/SideStore/README.md) for supported targets and validation boundaries.
 See [HOME_SCREEN.md](HOME_SCREEN.md). Open **Tweaks →
 Debian Packages**, select a private guest, import a supported app-specific DEB, inspect the result and
 install using the existing certificate. Package enable/disable and uninstall are available on the same screen.
 
-Universal conversion, the APT manager and physical-device validation remain incomplete.
+The **Tweak Marketplace** accepts HTTPS flat Sileo/APT sources and inspects downloaded packages against the chosen app. **Settings → JIT → Set Up Built-in JIT** configures a separate StikJIT helper with a remote pairing file and LocalDevVPN. See [LifeContainer+ feature notes](LIFECONTAINER_PLUS.md) for adaptive device grids, localization, recording and compatibility limits. Full APT dependency resolution, arbitrary third-party WidgetKit hosting and physical-device validation remain incomplete.
 See [ARCHITECTURE.md](ARCHITECTURE.md), [COMPATIBILITY.md](COMPATIBILITY.md), [BUILD.md](BUILD.md) and
 [TESTING.md](TESTING.md) for scope and real validation boundaries. All upstream attribution and license remain below.
 
