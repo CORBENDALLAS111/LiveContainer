@@ -20,6 +20,10 @@ xcrun --sdk iphoneos clang \
   -Wl,-install_name,@rpath/ChatGPTUsage.dylib \
   -o "$OUT/ChatGPTUsage.dylib" \
   "$ROOT/ChatGPTUsage.m"
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --sign - --timestamp=none --identifier com.chatgpt.usageoverlay "$OUT/ChatGPTUsage.dylib"
+  codesign --verify --verbose=2 "$OUT/ChatGPTUsage.dylib"
+fi
 file "$OUT/ChatGPTUsage.dylib"
 test -s "$OUT/ChatGPTUsage.dylib"
 cp "$ROOT/INSTALL.txt" "$OUT/INSTALL.txt"
