@@ -12,7 +12,7 @@
 + (BOOL)isLiveProcess { return NO; }
 @end
 
-@interface FixtureDelegate : UIResponder <UIApplicationDelegate, WKScriptMessageHandler>
+@interface FixtureDelegate : UIResponder <UIApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate>
 @property(nonatomic,strong) UIWindow *window;
 @property(nonatomic) NSInteger count;
 @property(nonatomic) NSInteger gestures;
@@ -20,8 +20,12 @@
 @property(nonatomic) NSInteger webTaps;
 @property(nonatomic,strong) UILabel *status;
 @property(nonatomic,strong) NSMutableDictionary *file;
+@property(nonatomic,copy) void (^runTests)(void);
 @end
 @implementation FixtureDelegate
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    if (self.runTests) { self.runTests(); self.runTests = nil; }
+}
 - (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
     self.webTaps++; [self pressed];
 }
@@ -47,6 +51,7 @@
     WKWebViewConfiguration *webConfiguration = [WKWebViewConfiguration new];
     [webConfiguration.userContentController addScriptMessageHandler:self name:@"fixture"];
     WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(50, 190, self.window.bounds.size.width-100, 70) configuration:webConfiguration];
+    web.navigationDelegate = self;
     [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>*{margin:0;padding:0}button{width:100%;height:70px}</style><button onclick=\"window.webkit.messageHandlers.fixture.postMessage('tap')\">Web button</button>" baseURL:nil];
     [view addSubview:web];
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -85,7 +90,7 @@
     NSMutableDictionary *profile = [@{@"id":identifier, @"name":@"SDK fixture", @"app":NSBundle.mainBundle.bundlePath.lastPathComponent, @"steps":steps} mutableCopy];
     self.file = [@{@"version":@1, @"enabled":@YES, @"apps":@[], @"profiles":@[profile]} mutableCopy];
     [self writeFile];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    self.runTests = ^{ dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         LCOSStartAutomation(identifier);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             NSString *message = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"LCOSAutomationLastResult"][@"message"];
@@ -105,7 +110,7 @@
                     NSDictionary *recorded = [saved[@"profiles"] lastObject];
                     BOOL captured = delivered && [recorded[@"steps"] count] == 2 && webDelivered && ![recorded[@"id"] isEqual:identifier];
                     LCOSStartAutomation(recorded[@"id"]);
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                         BOOL replay = captured && self.count == 8 && self.gestures == 3 && self.webTaps == 2;
                         NSMutableDictionary *wait = base.mutableCopy; wait[@"kind"] = @"wait"; wait[@"seconds"] = @1;
                         NSMutableDictionary *click = base.mutableCopy; click[@"kind"] = @"button";
@@ -121,7 +126,9 @@
                             LCOSStartRecording();
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 BOOL disabled = self.count == 8;
-                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"recording_prompt_starts_capture":@(captured), @"web_button_record_replay":@(replay && self.webTaps == 2), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO};
+                                BOOL webReplay = replay && self.webTaps == 2;
+                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"recording_prompt_starts_capture":@(captured), @"web_button_record_replay":@(webReplay), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO,
+                                    @"debug_total_activations":@(self.count), @"debug_web_activations":@(self.webTaps), @"debug_gestures":@(self.gestures), @"debug_recorded_steps":recorded[@"steps"] ?: @[], @"debug_native_web_delivery":@(webDelivered)};
                                 [[NSJSONSerialization dataWithJSONObject:evidence options:NSJSONWritingPrettyPrinted error:nil] writeToFile:[self path:@"automation-evidence.json"] atomically:YES];
                                 self.status.text = activation && replay && cancellation && disabled ? @"Touch and recording checks passed" : @"Touch and recording checks FAILED";
                             });
@@ -131,7 +138,7 @@
                 });
             });
         });
-    });
+    }); };
     return YES;
 }
 @end
