@@ -1,0 +1,31 @@
+name: Build ChatGPT Usage dylib
+on:
+  push:
+    branches:
+      - feature/chatgpt-usage-overlay-20261021
+    paths:
+      - 'Extras/ChatGPTUsage/**'
+      - '.github/workflows/chatgpt-usage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile arm64 iOS dylib
+        run: bash Extras/ChatGPTUsage/build.sh
+      - name: Verify Mach-O
+        run: |
+          file Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
+          xcrun vtool -show-build Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
+      - name: Upload binary and zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatGPTUsage-LiveContainer-arm64
+          path: |
+            Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
+            Extras/ChatGPTUsage/build/ChatGPTUsage-LiveContainer.zip
+            Extras/ChatGPTUsage/build/INSTALL.txt
+          if-no-files-found: error

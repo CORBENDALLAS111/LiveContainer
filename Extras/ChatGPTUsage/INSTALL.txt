@@ -1,0 +1,38 @@
+ChatGPTUsage for LiveContainer — experimental MVP
+
+This is a native UIKit overlay for the ChatGPT iOS guest app.
+Supported output: unsigned arm64 iOS 15+ dylib; LiveContainer can re-sign it.
+
+INSTALL:
+1. Open the primary LiveContainer app.
+2. Tweaks tab -> create an app-specific folder, e.g. ChatGPTUsage.
+3. Import ChatGPTUsage.dylib into this folder and tap Sign if requested.
+4. Open the ChatGPT guest app settings -> Tweak Folder -> ChatGPTUsage.
+5. Confirm "Don't Inject TweakLoader" and "Don't Load TweakLoader" are both disabled.
+6. Relaunch the ChatGPT guest app (not the App Store copy).
+7. A small yellow-dot HUD appears above the composer. Tap to expand; drag to move.
+
+HOW IT WORKS:
+* Tap the HUD to expand/collapse.
+* Model button cycles GPT-6 / Thinking / Pro / Codex.
+* Set remaining manually for the selected model. Tap "-1 used" to track one message.
+* Set reset time chooses a local 1h / 3h / 24h / 7d reminder.
+* Counts remain unverified and marked "manual"; no invented or estimated server quotas.
+* When official live quota data are not available, the overlay displays "limits unavailable".
+* No network requests, credentials, request sniffing, or ChatGPT private API hooks.
+
+LIMITATIONS:
+* A built dylib does not mean tested compatibility with the installed ChatGPT IPA.
+* The overlay is deliberately global within the ChatGPT app, not limited to chat route.
+* A future verified usage provider could supply automatic counts, but it is NOT in MVP.
+* Versions and app layout may change. A valid app guest setup is required.
+* iOS/LiveContainer signing happens on the device; GitHub output is unsigned.
+
+BUILD:
+On macOS with Xcode/iPhoneOS SDK installed:
+  bash Extras/ChatGPTUsage/build.sh
+Produces build/ChatGPTUsage.dylib and build/ChatGPTUsage-LiveContainer.zip.
+
+SECURITY:
+Only use on apps that you own or have permission to modify. No user data leaves
+the device through the tweak itself.
