@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <WebKit/WebKit.h>
 #import "../../TweakLoader/LCOSAutomation.h"
 #import "../../TweakLoader/LCOSTouch.h"
 
@@ -11,15 +12,19 @@
 + (BOOL)isLiveProcess { return NO; }
 @end
 
-@interface FixtureDelegate : UIResponder <UIApplicationDelegate>
+@interface FixtureDelegate : UIResponder <UIApplicationDelegate, WKScriptMessageHandler>
 @property(nonatomic,strong) UIWindow *window;
 @property(nonatomic) NSInteger count;
 @property(nonatomic) NSInteger gestures;
 @property(nonatomic) NSInteger swiftUITaps;
+@property(nonatomic) NSInteger webTaps;
 @property(nonatomic,strong) UILabel *status;
 @property(nonatomic,strong) NSMutableDictionary *file;
 @end
 @implementation FixtureDelegate
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+    self.webTaps++; [self pressed];
+}
 - (UILabel *)recordLabel:(UIView *)view {
     if ([view isKindOfClass:UILabel.class] && ([((UILabel *)view).text isEqual:@"Record"] || [((UILabel *)view).text isEqual:@"Записать"])) return (UILabel *)view;
     for (UIView *child in view.subviews) { UILabel *found = [self recordLabel:child]; if (found) return found; }
@@ -39,6 +44,11 @@
     self.status = [[UILabel alloc] initWithFrame:CGRectMake(20, 100, self.window.bounds.size.width-40, 80)];
     self.status.numberOfLines = 0; self.status.text = @"Testing actual guest automation runner…";
     [view addSubview:self.status];
+    WKWebViewConfiguration *webConfiguration = [WKWebViewConfiguration new];
+    [webConfiguration.userContentController addScriptMessageHandler:self name:@"fixture"];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(50, 190, self.window.bounds.size.width-100, 70) configuration:webConfiguration];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>*{margin:0;padding:0}button{width:100%;height:70px}</style><button onclick=\"window.webkit.messageHandlers.fixture.postMessage('tap')\">Web button</button>" baseURL:nil];
+    [view addSubview:web];
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     button.frame = CGRectMake(50, self.window.bounds.size.height/2-150, self.window.bounds.size.width-100, 60);
     button.accessibilityIdentifier = @"fixture.button";
@@ -89,13 +99,14 @@
             });
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                 LCOSTapAtPoint(self.window, CGPointMake(self.window.bounds.size.width/2, self.window.bounds.size.height*0.7), ^(BOOL delivered) {
+                    LCOSTapAtPoint(self.window, CGPointMake(self.window.bounds.size.width/2, 225), ^(BOOL webDelivered) {
                     LCOSStopRecording();
                     NSDictionary *saved = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[self path:@"LCOSAutomations.json"]] options:0 error:nil];
                     NSDictionary *recorded = [saved[@"profiles"] lastObject];
-                    BOOL captured = delivered && [recorded[@"steps"] count] == 1 && ![recorded[@"id"] isEqual:identifier];
+                    BOOL captured = delivered && [recorded[@"steps"] count] == 2 && webDelivered && ![recorded[@"id"] isEqual:identifier];
                     LCOSStartAutomation(recorded[@"id"]);
                     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                        BOOL replay = captured && self.count == 6 && self.gestures == 3;
+                        BOOL replay = captured && self.count == 8 && self.gestures == 3 && self.webTaps == 2;
                         NSMutableDictionary *wait = base.mutableCopy; wait[@"kind"] = @"wait"; wait[@"seconds"] = @1;
                         NSMutableDictionary *click = base.mutableCopy; click[@"kind"] = @"button";
                         self.file = saved.mutableCopy;
@@ -105,16 +116,17 @@
                             [NSNotificationCenter.defaultCenter postNotificationName:UIApplicationWillResignActiveNotification object:application];
                         });
                         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                            BOOL cancellation = self.count == 6;
+                            BOOL cancellation = self.count == 8;
                             self.file[@"enabled"] = @NO; [self writeFile]; LCOSStartAutomation(identifier);
                             LCOSStartRecording();
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                BOOL disabled = self.count == 6;
-                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"recording_prompt_starts_capture":@(captured), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO};
+                                BOOL disabled = self.count == 8;
+                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"recording_prompt_starts_capture":@(captured), @"web_button_record_replay":@(replay && self.webTaps == 2), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO};
                                 [[NSJSONSerialization dataWithJSONObject:evidence options:NSJSONWritingPrettyPrinted error:nil] writeToFile:[self path:@"automation-evidence.json"] atomically:YES];
                                 self.status.text = activation && replay && cancellation && disabled ? @"Touch and recording checks passed" : @"Touch and recording checks FAILED";
                             });
                         });
+                    });
                     });
                 });
             });

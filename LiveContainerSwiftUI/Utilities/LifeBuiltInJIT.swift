@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 enum LifeBuiltInJIT {
     private static var active: [NSExtension] = []
     private static var tokens: [UUID: Task<Void, Never>] = [:]
-    static var pairingURL: URL { URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents/LifeJIT/pairing.plist") }
+    nonisolated static var pairingURL: URL { URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents/LifeJIT/pairing.plist") }
     static func validatePairing(_ data: Data) throws {
         guard data.count > 0, data.count <= 1_048_576,
               (try? PropertyListSerialization.propertyList(from: data, format: nil)) is [String: Any] else {
@@ -21,7 +21,6 @@ enum LifeBuiltInJIT {
               let identifier = bundle.bundleIdentifier else { throw PackageFailure.invalid("life.jit.missingHelper".loc) }
         let pairing = try Data(contentsOf: pairingURL); try validatePairing(pairing)
         let helper = try NSExtension(identifier: identifier)
-        guard let helper else { throw PackageFailure.invalid("life.jit.missingHelper".loc) }
         let token = UUID()
         active.append(helper)
         let cleanup = {
@@ -40,11 +39,9 @@ enum LifeBuiltInJIT {
         if let pid { info["pid"] = NSNumber(value: pid); info["script"] = script ?? "" }
         item.userInfo = info
         log("life.jit.starting".loc)
-        helper.beginExtensionRequest(withInputItems: [item]) { uuid in
-            Task { @MainActor in
-                guard uuid != nil else { cleanup(); log("life.jit.missingHelper".loc); return }
-                log(pid == nil ? "life.jit.preparing".loc : "life.jit.attaching".loc)
-            }
+        Task { @MainActor in
+            _ = await helper.beginRequest(withInputItems: [item])
+            log(pid == nil ? "life.jit.preparing".loc : "life.jit.attaching".loc)
         }
         tokens[token] = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000_000)
@@ -66,7 +63,7 @@ struct LifeJITSettingsView: View {
                 Label("life.jit.title".loc, systemImage: "bolt.fill").font(.title2.bold())
                 Text("life.jit.explanation".loc).font(.subheadline).foregroundStyle(.secondary)
             }
-            Section("life.jit.setup".loc) {
+            Section {
                 Label(paired ? "life.jit.paired".loc : "life.jit.notPaired".loc, systemImage: paired ? "checkmark.seal.fill" : "key")
                 Button("life.jit.import".loc) { importing = true }
                 Link("life.jit.pairingGuide".loc, destination: URL(string: "https://github.com/StikDebug/StikDebug-Guide/blob/main/pairing_file.md")!)
@@ -81,7 +78,7 @@ struct LifeJITSettingsView: View {
                         catch { self.error = error.localizedDescription }
                     }
                 }
-            } footer: { Text("life.jit.requirements".loc) }
+            } header: { Text("life.jit.setup".loc) } footer: { Text("life.jit.requirements".loc) }
             if !messages.isEmpty { Section("life.jit.log".loc) { Text(messages).font(.caption.monospaced()).textSelection(.enabled) } }
         }.navigationTitle("life.jit.title".loc)
         .onAppear { paired = FileManager.default.fileExists(atPath: LifeBuiltInJIT.pairingURL.path) }

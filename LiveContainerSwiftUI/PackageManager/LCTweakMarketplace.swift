@@ -45,7 +45,7 @@ struct LCTweakMarketplace: View {
                     }
                 }.padding(.vertical, 10)
             }
-            Section("life.market.sources".loc) {
+            Section {
                 ForEach(sources) { source in
                     HStack {
                         Image(systemName: "server.rack").foregroundStyle(.secondary)
@@ -57,10 +57,10 @@ struct LCTweakMarketplace: View {
                     }
                 }
                 Button { sourceURL = ""; addSource = true } label: { Label("life.market.addSource".loc, systemImage: "plus.circle.fill") }
-            } footer: { Text("life.market.sourceHelp".loc) }
+            } header: { Text("life.market.sources".loc) } footer: { Text("life.market.sourceHelp".loc) }
             if working { Section { ProgressView("life.market.loading".loc) } }
             if !failures.isEmpty { Section { ForEach(failures, id: \.self) { Text($0).font(.footnote).foregroundStyle(.secondary) } } }
-            Section("life.market.packages".loc) {
+            Section {
                 if sources.isEmpty { Text("life.market.empty".loc).foregroundStyle(.secondary) }
                 ForEach(results) { package in
                     NavigationLink {
@@ -74,7 +74,7 @@ struct LCTweakMarketplace: View {
                         }.padding(.vertical, 5)
                     }
                 }
-            } footer: { Text("life.market.compatibility".loc) }
+            } header: { Text("life.market.packages".loc) } footer: { Text("life.market.compatibility".loc) }
         }
         .navigationTitle("life.market.title".loc)
         .searchable(text: $query, prompt: "life.market.search".loc)

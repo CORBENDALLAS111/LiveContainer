@@ -58,8 +58,9 @@ static LCOSRecorder *LCOSRecording;
         NSValue *key = [NSValue valueWithNonretainedObject:touch];
         UIView *view = [touch.view isKindOfClass:UIView.class] ? touch.view : nil;
         BOOL excluded = touch.view == self.button || [view isDescendantOfView:self.button] || [NSStringFromClass(touch.window.class).lowercaseString containsString:@"keyboard"];
-        for (UIView *parent = view; parent && !excluded; parent = parent.superview)
-            if ([parent conformsToProtocol:@protocol(UITextInput)]) excluded = YES;
+        // WKContentView conforms to UITextInput even when the user taps an HTML button.
+        // Exclude keyboard windows, rather than discarding an entire web interface.
+        // Only coordinates are saved; no text or key events are inspected.
         if (excluded || !touch.window || touch.window.bounds.size.width <= 0 || touch.window.bounds.size.height <= 0) continue;
         CGPoint point = [touch locationInView:touch.window];
         if (touch.phase == UITouchPhaseBegan) self.origins[key] = [NSValue valueWithCGPoint:point];
