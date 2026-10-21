@@ -16,6 +16,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile arm64 iOS dylib
         run: bash Extras/ChatGPTUsage/build.sh
+      - name: Build rootless and rootful Debian packages
+        run: python3 Extras/ChatGPTUsage/package_deb.py Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
+      - name: Verify ad-hoc signature
+        run: codesign --verify --verbose=2 Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
       - name: Verify Mach-O
         run: |
           file Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
@@ -28,4 +32,5 @@ jobs:
             Extras/ChatGPTUsage/build/ChatGPTUsage.dylib
             Extras/ChatGPTUsage/build/ChatGPTUsage-LiveContainer.zip
             Extras/ChatGPTUsage/build/INSTALL.txt
+            Extras/ChatGPTUsage/build/*.deb
           if-no-files-found: error
