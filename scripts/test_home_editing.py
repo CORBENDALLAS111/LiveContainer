@@ -30,6 +30,12 @@ runtimes = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'runti
 runtime = next(r['identifier'] for r in runtimes if r['version'] == sdk and r['isAvailable'])
 mini = next(d for d in devices[runtime] if 'iPad mini' in d['name'])
 print('Testing on', mini['name'], runtime, flush=True)
+# Warm the selected device before XCTest installs its runner. Cold automatic
+# boot can stall before the first test on shared macOS runners.
+if mini['state'] != 'Booted':
+    subprocess.run(['xcrun', 'simctl', 'boot', mini['udid']], check=True, timeout=120)
+subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', mini['udid']], check=True, timeout=60)
+subprocess.run(['xcrun', 'simctl', 'bootstatus', mini['udid'], '-b'], check=True, timeout=300)
 subprocess.run(['xcodebuild', '-project', str(out / 'HomeEditing.xcodeproj'), '-scheme', 'HomeEditing',
                 '-destination', 'platform=iOS Simulator,id=' + mini['udid'], '-parallel-testing-enabled', 'NO',
-                '-resultBundlePath', str(out / 'MiniEditing.xcresult'), 'test'], check=True)
+                '-resultBundlePath', str(out / 'MiniEditing.xcresult'), 'test'], check=True, timeout=900)
