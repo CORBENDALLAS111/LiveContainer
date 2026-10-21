@@ -65,6 +65,7 @@ struct PreviewDelegate: LCAppBannerDelegate {}
 @main
 struct PreviewHost: App {
     @StateObject private var shared = SharedModel()
+    @State private var jiggleCount = 0
     init() {
         // SwiftUI AppStorage may not observe the launch-argument defaults domain.
         // Seed the fixture's persistent domain before constructing production views.
@@ -102,6 +103,22 @@ struct PreviewHost: App {
             LCHomeScreenView(apps: apps, delegate: PreviewDelegate(), importing: false, installProgress: 0,
                              importIPA: {}, importURL: {}, openLink: {}, openSideStore: nil)
                 .environmentObject(shared)
+                .overlay(alignment: .bottomLeading) {
+                    if UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") {
+                        Text("\(jiggleCount)").font(.caption2)
+                            .accessibilityIdentifier("fixture.jiggleCount")
+                            .onReceive(Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()) { _ in
+                                func count(_ controller: UIViewController) -> Int {
+                                    let active = (controller as? LCHomeDragController).map {
+                                        $0.host.view.layer.animation(forKey: "lifecontainer.editJiggle") != nil ? 1 : 0
+                                    } ?? 0
+                                    return active + controller.children.reduce(0) { $0 + count($1) }
+                                }
+                                jiggleCount = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                                    .flatMap(\.windows).compactMap(\.rootViewController).reduce(0) { $0 + count($1) }
+                            }
+                    }
+                }
                 .task {
                     if #available(iOS 16.0, *) {
                         try? await Task.sleep(nanoseconds: 300_000_000)

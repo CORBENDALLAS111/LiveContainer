@@ -449,7 +449,8 @@ struct LCHomeScreenView: View {
                         }.padding(.horizontal, 24).padding(.top, CGFloat(metrics.inset))
                         blankArea { dropAtPageEnd(index, perPage: capacity, folder: folder.id) }
                             .frame(minHeight: 24, maxHeight: .infinity)
-                        }.frame(maxHeight: .infinity, alignment: .top).tag(index)
+                        }.frame(maxHeight: .infinity, alignment: .top)
+                            .background(LCHomeBlankPress { startEditing() }).tag(index)
                     }
                 }.tabViewStyle(.page(indexDisplayMode: .never))
                 .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: capacity, folder: folder.id) }
