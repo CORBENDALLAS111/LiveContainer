@@ -71,7 +71,8 @@ try:
     (data / 'Documents/preview-config.plist').write_bytes(plistlib.dumps({'LCOSHomeScreenEnabled': True, 'LCOSHomeLayout': layout}))
     captures = [('light', 'YES', 'desktop-light.png'), ('dark', 'YES', 'desktop-dark.png'),
                 ('dark', 'YES', 'desktop-editing.png'), ('dark', 'YES', 'desktop-page-two.png'),
-                ('dark', 'YES', 'folder-open.png'), ('dark', 'YES', 'folder-editing.png')]
+                ('dark', 'YES', 'folder-open.png'), ('dark', 'YES', 'folder-editing.png'),
+                ('dark', 'YES', 'folder-landscape-editing.png')]
     if not component:
         captures.append(('light', 'NO', 'app-list.png'))
     for appearance, enabled, filename in captures:
@@ -79,7 +80,8 @@ try:
         subprocess.run(['xcrun', 'simctl', 'terminate', udid, bundle], capture_output=True)
         run('xcrun', 'simctl', 'launch', udid, bundle, '-LCOSHomeScreenEnabled', enabled,
             '-LCOSHomeLayout', layout, '-LCOSPreviewEnabled', 'YES',
-            '-LCOSPreviewFolder', 'folder:preview' if filename in ('folder-open.png', 'folder-editing.png') else '',
+            '-LCOSPreviewFolder', 'folder:preview' if filename.startswith('folder-') else '',
+            '-LCOSPreviewLandscape', 'YES' if 'landscape' in filename else 'NO',
             '-LCOSPreviewEditing', 'YES' if 'editing' in filename else 'NO',
             '-LCOSPreviewPage', '1' if filename == 'desktop-page-two.png' else '0',
             '-LCBundleIdChecked', 'YES', '-LCCertificateTeamId', 'AAAAA11111', '-AppleLanguages', '(en)')

@@ -88,6 +88,15 @@ struct PreviewHost: App {
             LCHomeScreenView(apps: apps, delegate: PreviewDelegate(), importing: false, installProgress: 0,
                              importIPA: {}, importURL: {}, openLink: {}, openSideStore: nil)
                 .environmentObject(shared)
+                .task {
+                    if #available(iOS 16.0, *) {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+                        scene.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+                        scene.requestGeometryUpdate(.iOS(interfaceOrientations:
+                            UserDefaults.standard.bool(forKey: "LCOSPreviewLandscape") ? .landscapeRight : .portrait))
+                    }
+                }
         }
     }
 }

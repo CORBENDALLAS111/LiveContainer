@@ -25,6 +25,7 @@ struct LCHomeScreenView: View {
     @State private var folderID: String?
     @State private var folderName = ""
     @State private var folderPage = 0
+    @State private var folderCapacity = 9
     @State private var folderProgress: CGFloat = 0
     @State private var folderTargetOpen = true
     @State private var folderAnimating = false
@@ -135,7 +136,7 @@ struct LCHomeScreenView: View {
             guard let folder = folders.first(where: { $0.id == id }) else {
                 folderCloseTask?.cancel(); animateFolder { folderID = nil; folderProgress = 0 }; return
             }
-            folderPage = min(folderPage, max(0, (folder.apps.count - 1) / 9))
+            folderPage = min(folderPage, max(0, (folder.apps.count - 1) / folderCapacity))
         }
         .onAppear {
             refreshLayout()
@@ -391,9 +392,13 @@ struct LCHomeScreenView: View {
 
     private func folderOverlay(_ folder: LCHomeLayout.Folder, frame: CGRect, side: CGFloat) -> some View {
         let size = frame.size
-        let count = max(1, (folder.apps.count + 8) / 9)
-        let panelWidth = min(size.width, 440) - 48
-        let panelHeight = 3 * (side + 30) + 2 * 22 + 48
+        let metrics = LCHomeFolderMetrics(width: size.width, height: size.height, iconSide: side)
+        let capacity = metrics.capacity
+        let count = max(1, (folder.apps.count + capacity - 1) / capacity)
+        let panelWidth = CGFloat(metrics.width)
+        let panelHeight = CGFloat(metrics.height)
+        let panelCenterY = CGFloat(metrics.centerY)
+        let memberSide = CGFloat(metrics.side)
         let origin = folderFrames[folder.id]?.offsetBy(dx: -frame.minX, dy: -frame.minY)
             ?? CGRect(x: size.width / 2 - side / 2, y: size.height / 2 - side / 2, width: side, height: side)
         let progress = reduceMotion ? 1 : folderProgress
@@ -414,9 +419,9 @@ struct LCHomeScreenView: View {
                     var value = layout; value.moveItem(id, before: nil, available: available)
                     animate { save(value) }; closeFolder(); commitDrag()
                 }))
-            TextField("lcos.home.folder".loc, text: $folderName).font(.largeTitle.weight(.semibold))
+            TextField("lcos.home.folder".loc, text: $folderName).font(metrics.compact ? .title2.weight(.semibold) : .largeTitle.weight(.semibold))
                 .multilineTextAlignment(.center).submitLabel(.done).onSubmit { rename(folder.id) }
-                .frame(width: panelWidth).position(x: size.width / 2, y: size.height / 2 - panelHeight / 2 - 46)
+                .frame(width: panelWidth).position(x: size.width / 2, y: metrics.compact ? 22 : panelCenterY - panelHeight / 2 - 46)
                 .opacity(folderProgress)
             if editing {
                 Button("lcos.home.done".loc) { finishEditing() }
@@ -427,9 +432,9 @@ struct LCHomeScreenView: View {
                 TabView(selection: $folderPage) {
                     ForEach(0..<count, id: \.self) { index in
                         VStack(spacing: 0) {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3), spacing: 22) {
-                            ForEach(Array(folder.apps.dropFirst(index * 9).prefix(9)), id: \.self) { id in
-                                tile(id, side: side, container: folder.id)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: metrics.columns), spacing: CGFloat(metrics.spacing)) {
+                            ForEach(Array(folder.apps.dropFirst(index * capacity).prefix(capacity)), id: \.self) { id in
+                                tile(id, side: memberSide, container: folder.id)
                                     .contextMenu {
                                         if !editing {
                                         Button("lcos.home.moveOut".loc) {
@@ -439,37 +444,39 @@ struct LCHomeScreenView: View {
                                         }
                                     }
                             }
-                        }.padding(.horizontal, 24).padding(.top, 24)
-                        blankArea { dropAtPageEnd(index, perPage: 9, folder: folder.id) }
+                        }.padding(.horizontal, 24).padding(.top, CGFloat(metrics.inset))
+                        blankArea { dropAtPageEnd(index, perPage: capacity, folder: folder.id) }
                             .frame(minHeight: 24, maxHeight: .infinity)
                         }.frame(maxHeight: .infinity, alignment: .top).tag(index)
                     }
                 }.tabViewStyle(.page(indexDisplayMode: .never))
-                .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: 9, folder: folder.id) }
-                .overlay(alignment: .trailing) { pageEdge(1, count: count, perPage: 9, folder: folder.id) }
+                .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: capacity, folder: folder.id) }
+                .overlay(alignment: .trailing) { pageEdge(1, count: count, perPage: capacity, folder: folder.id) }
                 .frame(width: panelWidth, height: panelHeight)
                 .lcGlass(in: RoundedRectangle(cornerRadius: 38))
                 .allowsHitTesting(!folderAnimating || draggedID != nil)
                 .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {}, exit: {}, finish: {
-                    dropAtPageEnd(folderPage, perPage: 9, folder: folder.id)
+                    dropAtPageEnd(folderPage, perPage: capacity, folder: folder.id)
                 }))
                 .scaleEffect(x: (side / panelWidth + (1 - side / panelWidth) * progress) * folderPinch,
                              y: (side / panelHeight + (1 - side / panelHeight) * progress) * folderPinch)
                 .position(x: size.width / 2 + (origin.midX - size.width / 2) * (1 - progress),
-                          y: size.height / 2 + (origin.midY - size.height / 2) * (1 - progress))
+                          y: panelCenterY + (origin.midY - panelCenterY) * (1 - progress))
                 .opacity(folderProgress)
                 .animation(reduceMotion ? nil : .interactiveSpring(response: 0.3, dampingFraction: 0.86), value: folderPinch)
                 if count > 1 {
                     pageDots(count, selection: $folderPage)
-                        .position(x: size.width / 2, y: size.height / 2 + panelHeight / 2 + 32).opacity(folderProgress)
+                        .position(x: size.width / 2, y: panelCenterY + panelHeight / 2 + (metrics.compact ? 16 : 32)).opacity(folderProgress)
                 }
-                if editing {
+                if editing && !metrics.compact {
                     Text("lcos.home.folderDragHint".loc).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        .frame(width: panelWidth).position(x: size.width / 2, y: size.height / 2 + panelHeight / 2 + 70).opacity(folderProgress)
+                        .frame(width: panelWidth).position(x: size.width / 2, y: panelCenterY + panelHeight / 2 + 70).opacity(folderProgress)
                 }
         }
         .frame(width: size.width, height: size.height)
-        .onAppear { transitionFolder(open: true) }
+        .onAppear { folderCapacity = capacity; transitionFolder(open: true) }
+        .onChange(of: capacity) { value in folderCapacity = value; folderPage = min(folderPage, count - 1) }
+        .onChange(of: count) { folderPage = min(folderPage, $0 - 1) }
         .accessibilityAction(.escape) { closeFolder() }
         .simultaneousGesture(MagnificationGesture()
             .updating($folderPinch) { value, state, _ in state = reduceMotion ? 1 : min(1, max(0.7, value)) }

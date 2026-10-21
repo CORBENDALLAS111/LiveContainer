@@ -31,3 +31,29 @@ struct LCHomeMetrics: Equatable {
         rowSpacing = max(12, min(38, (height - Double(rows) * (iconSide + 30) - 20) / Double(max(1, rows - 1))))
     }
 }
+
+struct LCHomeFolderMetrics {
+    let columns: Int
+    let rows: Int
+    let side: Double
+    let width: Double
+    let height: Double
+    let spacing: Double
+    let inset: Double
+    let centerY: Double
+    let compact: Bool
+    var capacity: Int { rows * columns }
+    init(width windowWidth: Double, height windowHeight: Double, iconSide: Double) {
+        compact = windowHeight < 500
+        width = max(200, min(windowWidth, 440) - 48)
+        columns = compact && width >= 300 ? 4 : 3
+        rows = compact ? 2 : 3
+        spacing = compact ? 10 : 22
+        inset = compact ? 16 : 24
+        let cellWidth = (width - 48 - Double(columns - 1) * 12) / Double(columns)
+        let room = (windowHeight - 80 - inset * 2 - Double(rows - 1) * spacing) / Double(rows) - 30
+        side = min(iconSide, cellWidth, compact ? max(32, room) : iconSide)
+        height = Double(rows) * (side + 30) + Double(rows - 1) * spacing + inset * 2
+        centerY = compact ? 44 + height / 2 : windowHeight / 2
+    }
+}

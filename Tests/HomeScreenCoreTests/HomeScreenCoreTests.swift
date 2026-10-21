@@ -3,6 +3,14 @@ import XCTest
 @testable import HomeScreenCore
 
 final class HomeScreenCoreTests: XCTestCase {
+    func testFolderFitsLowLandscapeWindowAndPreservesPositiveCapacity() {
+        for height in [250.0, 300, 400, 700] {
+            let folder = LCHomeFolderMetrics(width: 800, height: height, iconSide: 62)
+            XCTAssertGreaterThan(folder.capacity, 0)
+            XCTAssertLessThanOrEqual(folder.centerY + folder.height / 2 + (folder.compact ? 24 : 0), height)
+            XCTAssertLessThanOrEqual(Double(folder.columns) * folder.side + 48 + Double(folder.columns - 1) * 12, folder.width)
+        }
+    }
     func testWindowMetricsAcrossPhoneMiniAndTabletRotation() {
         let phone = LCHomeMetrics(width: 402, height: 680, tablet: false, mini: false)
         XCTAssertEqual(phone.columns, 4); XCTAssertEqual(phone.rows, 6)
