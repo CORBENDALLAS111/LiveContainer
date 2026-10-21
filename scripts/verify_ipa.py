@@ -7,7 +7,7 @@ import plistlib
 import zipfile
 from verify_sidebackup import verify_embedded_sidebackup
 
-def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False):
+def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False, builtin_jit=False):
     path = pathlib.Path(path)
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError('IPA is absent or empty')
@@ -69,6 +69,20 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                 raise ValueError('Main application lacks discoverable Shortcuts action metadata')
             if integrated and 'RefreshAllIntent' not in actions:
                 raise ValueError('Integrated application lost SideStore refresh action metadata')
+        if builtin_jit:
+            helper = root + 'PlugIns/LifeJITHelper.appex/'
+            helper_info = plistlib.loads(archive.read(helper + 'Info.plist'))
+            if helper_info['CFBundleIdentifier'] != info['CFBundleIdentifier'] + '.LifeJITHelper':
+                raise ValueError('JIT helper is outside the parent bundle namespace')
+            if info['CFBundleDisplayName'] != 'LifeContainer+':
+                raise ValueError('Incorrect LifeContainer+ display name')
+            for suffix in ['PlugIns/LifeJITHelper.appex/LifeJITHelper', 'Frameworks/StikJIT.framework/StikJIT',
+                           'StikJIT-MPL-2.0.txt', 'idevice-MIT.txt', 'LifeJIT-SOURCE.json']:
+                if root + suffix not in names or not archive.read(root + suffix):
+                    raise ValueError('Missing built-in JIT component: ' + suffix)
+            provenance = json.loads(archive.read(root + 'LifeJIT-SOURCE.json'))
+            if provenance.get('commit') != '32287268fa5824f9edce4cb359f5833ce0cf7b00' or not provenance.get('source_build'):
+                raise ValueError('Unverified StikJIT source provenance')
         return {'file': path.name, 'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
                 'bundle': info['CFBundleIdentifier'], 'signing_injection': signing_injection, 'integrated': integrated, 'entries': len(names),
                 'source_commit': source_commit, 'automation_metadata': automations,
@@ -80,10 +94,11 @@ if __name__ == '__main__':
     parser.add_argument('--integrated', action='store_true')
     parser.add_argument('--signing-injection', action='store_true')
     parser.add_argument('--automations', action='store_true')
+    parser.add_argument('--builtin-jit', action='store_true')
     parser.add_argument('--output')
     parser.add_argument('--source-commit')
     args = parser.parse_args()
-    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection, args.automations)
+    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection, args.automations, args.builtin_jit)
     result = json.dumps(evidence, indent=2)
     if args.output:
         pathlib.Path(args.output).write_text(result + '\n', encoding='utf-8')

@@ -9,6 +9,12 @@ struct LCHomeMetrics: Equatable {
     let rowSpacing: Double
     var capacity: Int { columns * rows }
 
+    static func isMini(model: String, shortSide: Double) -> Bool {
+        let olderMinis: Set<String> = ["iPad2,5", "iPad2,6", "iPad2,7", "iPad4,4", "iPad4,5", "iPad4,6",
+            "iPad4,7", "iPad4,8", "iPad4,9", "iPad5,1", "iPad5,2", "iPad11,1", "iPad11,2"]
+        return olderMinis.contains(model) || shortSide <= 744
+    }
+
     init(width: Double, height: Double, tablet: Bool, mini: Bool, accessibility: Bool = false, isLandscape: Bool? = nil) {
         let landscape = isLandscape ?? (width > height)
         if tablet {

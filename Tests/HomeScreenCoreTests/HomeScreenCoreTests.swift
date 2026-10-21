@@ -8,6 +8,8 @@ final class HomeScreenCoreTests: XCTestCase {
         XCTAssertEqual(phone.columns, 4); XCTAssertEqual(phone.rows, 6)
         let mini = LCHomeMetrics(width: 744, height: 900, tablet: true, mini: true)
         XCTAssertEqual(mini.columns, 5); XCTAssertEqual(mini.rows, 6)
+        XCTAssertTrue(LCHomeMetrics.isMini(model: "iPad11,1", shortSide: 768))
+        XCTAssertFalse(LCHomeMetrics.isMini(model: "iPad13,18", shortSide: 820))
         let pad = LCHomeMetrics(width: 1024, height: 1100, tablet: true, mini: false)
         XCTAssertEqual(pad.columns, 5); XCTAssertEqual(pad.rows, 5)
         for size in [(320.0, 400.0), (852, 260), (744, 900), (1133, 620)] {

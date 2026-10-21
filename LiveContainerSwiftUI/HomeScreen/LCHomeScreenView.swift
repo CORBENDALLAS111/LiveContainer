@@ -43,6 +43,13 @@ struct LCHomeScreenView: View {
     @State private var resetConfirmation = false
     @FocusState private var searchFocused: Bool
     private static let dragType = UTType(exportedAs: "org.livecontainer.desktop-app")
+    private static let deviceModel: String = {
+        var info = utsname(); uname(&info)
+        let capacity = MemoryLayout.size(ofValue: info.machine)
+        return withUnsafePointer(to: &info.machine) { pointer in
+            pointer.withMemoryRebound(to: CChar.self, capacity: capacity) { String(cString: $0) }
+        }
+    }()
 
     private var available: [String] { apps.map(identifier) }
     @State private var cachedLayout = LCHomeLayout()
@@ -68,7 +75,7 @@ struct LCHomeScreenView: View {
         GeometryReader { geometry in
             let metrics = LCHomeMetrics(width: geometry.size.width, height: geometry.size.height - (searching ? 206 : 162),
                 tablet: UIDevice.current.userInterfaceIdiom == .pad,
-                mini: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) <= 744,
+                mini: LCHomeMetrics.isMini(model: Self.deviceModel, shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)),
                 accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
             let side = CGFloat(metrics.iconSide)
             let columns = metrics.columns

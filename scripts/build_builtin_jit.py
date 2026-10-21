@@ -37,8 +37,7 @@ subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-application-exte
 }))
 shutil.copyfile(source / 'LICENSE', app / 'StikJIT-MPL-2.0.txt')
 # idevice is linked into the upstream framework; preserve its original license.
-with urllib.request.urlopen('https://raw.githubusercontent.com/jkcoxson/idevice/v0.1.68/LICENSE', timeout=30) as response:
-    (app / 'idevice-MIT.txt').write_bytes(response.read())
+shutil.copyfile(root / 'LifeJITHelper/idevice-MIT.txt', app / 'idevice-MIT.txt')
 (app / 'LifeJIT-SOURCE.json').write_text(json.dumps({'repository': 'https://github.com/StikDebug/StikJIT',
     'commit': commit, 'license': 'MPL-2.0', 'source_build': True,
     'helper': 'LifeJITHelper/Handler.swift', 'physical_device_tested': False}, indent=2), encoding='utf-8')
