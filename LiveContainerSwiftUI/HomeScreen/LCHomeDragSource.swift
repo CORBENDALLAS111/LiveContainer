@@ -14,8 +14,8 @@ struct LCHomeDragSource<Content: View>: UIViewControllerRepresentable {
         LCHomeDragController(id: id, iconSide: iconSide, content: AnyView(content), begin: begin, end: end)
     }
     func updateUIViewController(_ controller: LCHomeDragController, context: Context) {
-        controller.setJiggle(jiggle)
         controller.host.rootView = AnyView(content)
+        controller.setJiggle(jiggle)
         controller.id = id; controller.iconSide = iconSide; controller.begin = begin; controller.end = end
     }
     @available(iOS 16.0, *)
@@ -36,15 +36,15 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
     private weak var dragWindow: UIWindow?
     private var liftLocation = CGPoint.zero
     private var activated = false
+    private var wantsJiggle = false
     init(id: String, iconSide: CGFloat, content: AnyView, begin: @escaping () -> Void, end: @escaping () -> Void) {
         self.id = id; self.iconSide = iconSide; self.begin = begin; self.end = end
         host = UIHostingController(rootView: content)
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
-    #if DEBUG
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+    private func previewDustIfRequested() {
+        #if DEBUG
         guard UserDefaults.standard.bool(forKey: "LCOSPreviewEnabled"),
               UserDefaults.standard.bool(forKey: "LCOSPreviewDust"),
               id.hasPrefix("org.example.homepreview.10:") else { return }
@@ -54,10 +54,11 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
             await LCHomeDustAnimator.dissolve(snapshot, hiding: self.view)
             self.view.alpha = 1 // Fixture only: no real app or data is removed.
         }
+        #endif
     }
-    #endif
     override func loadView() {
         view = UIView(); view.backgroundColor = .clear
+        view.accessibilityIdentifier = "lifecontainer.homeIcon"
         addChild(host); host.view.backgroundColor = .clear; host.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(host.view)
         NSLayoutConstraint.activate([host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -101,7 +102,13 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
         // The old folder/page may no longer be in a window. UIKit's fallback remains valid.
         host.view.window == nil ? defaultPreview : iconPreview()
     }
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        setJiggle(wantsJiggle)
+        previewDustIfRequested()
+    }
     func setJiggle(_ active: Bool) {
+        wantsJiggle = active
         let key = "lifecontainer.editJiggle"
         guard active else { host.view.layer.removeAnimation(forKey: key); return }
         guard host.view.layer.animation(forKey: key) == nil else { return }
@@ -120,4 +127,63 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
         parameters.visiblePath = UIBezierPath(roundedRect: icon, cornerRadius: iconSide * 0.235)
         return UITargetedDragPreview(view: host.view, parameters: parameters)
     }
+}
+
+
+/// Observe the scroll view itself: its SwiftUI background cannot receive touches
+/// in grid gaps. Reject every icon cell before recognition, preserving context menus.
+struct LCHomeBlankPress: UIViewRepresentable {
+    var perform: () -> Void
+    func makeUIView(context: Context) -> LCHomeBlankPressAnchor { LCHomeBlankPressAnchor(perform: perform) }
+    func updateUIView(_ view: LCHomeBlankPressAnchor, context: Context) { view.perform = perform }
+    static func dismantleUIView(_ view: LCHomeBlankPressAnchor, coordinator: ()) { view.detach() }
+}
+final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
+    var perform: () -> Void
+    private weak var observedScroll: UIScrollView?
+    private lazy var press: UILongPressGestureRecognizer = {
+        let value = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
+        value.minimumPressDuration = 0.45
+        value.allowableMovement = 10
+        value.delegate = self
+        return value
+    }()
+    init(perform: @escaping () -> Void) {
+        self.perform = perform
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        detach()
+        guard window != nil else { return }
+        var ancestor = superview
+        while let view = ancestor {
+            if let scroll = view as? UIScrollView {
+                observedScroll = scroll
+                scroll.addGestureRecognizer(press)
+                return
+            }
+            ancestor = view.superview
+        }
+    }
+    func detach() { observedScroll?.removeGestureRecognizer(press); observedScroll = nil }
+    @objc private func held(_ sender: UILongPressGestureRecognizer) {
+        if sender.state == .began { perform() }
+    }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard let scroll = observedScroll else { return false }
+        let point = touch.location(in: scroll)
+        // Include the cell's label and badge area, not only the image bounds.
+        func containsIcon(_ view: UIView) -> Bool {
+            guard !view.isHidden, view.alpha > 0.01 else { return false }
+            if view.accessibilityIdentifier == "lifecontainer.homeIcon",
+               view.bounds.contains(view.convert(point, from: scroll)) { return true }
+            return view.subviews.contains(where: containsIcon)
+        }
+        return !containsIcon(scroll)
+    }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 }

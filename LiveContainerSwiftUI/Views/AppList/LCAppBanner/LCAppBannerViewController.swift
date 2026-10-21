@@ -26,7 +26,12 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
     private var iconHost: UIHostingController<LCHomeIconArtwork>?
     var onToggleDock: (() -> Void)?
     var isDocked = false
-    var homeEditing = false
+    var homeEditing = false {
+        didSet {
+            guard homeEditing != oldValue, homeScreen else { return }
+            iconHost?.rootView = makeHomeIcon()
+        }
+    }
     
     init(delegate: LCAppBannerDelegate, config: LCAppBannerConfiguration, homeScreen: Bool = false,
          iconSide: CGFloat = 62, showLabel: Bool = true) {

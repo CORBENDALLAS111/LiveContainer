@@ -199,6 +199,7 @@ struct LCHomeScreenView: View {
                 Spacer(minLength: 0)
                 if editing {
                     Button("lcos.home.done".loc) { finishEditing() }
+                        .accessibilityIdentifier("lifecontainer.editDone")
                         .font(.body.weight(.semibold)).padding(.horizontal, 16).frame(height: 44)
                         .lcGlass(in: Capsule(), interactive: true)
                 } else {
@@ -278,7 +279,6 @@ struct LCHomeScreenView: View {
     }
     private func blankArea(drop: @escaping () -> Void) -> some View {
         Color.clear.contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: 0.45) { startEditing() }
             .onTapGesture { if editing { finishEditing() } }
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {}, exit: {}, finish: drop))
     }
@@ -292,6 +292,7 @@ struct LCHomeScreenView: View {
                     blankArea { dropAtPageEnd(index, perPage: perPage, folder: nil) }
                         .frame(minHeight: 28, maxHeight: .infinity)
                 }.frame(minHeight: proxy.size.height, alignment: .top)
+                    .background(LCHomeBlankPress { startEditing() })
             }.modifier(LCHomeCleanScrollEdges())
         }
     }
@@ -425,6 +426,7 @@ struct LCHomeScreenView: View {
                 .opacity(folderProgress)
             if editing {
                 Button("lcos.home.done".loc) { finishEditing() }
+                        .accessibilityIdentifier("lifecontainer.editDone")
                     .font(.body.weight(.semibold)).padding(.horizontal, 16).frame(height: 44)
                     .lcGlass(in: Capsule(), interactive: true)
                     .position(x: size.width - 68, y: 28).opacity(folderProgress)

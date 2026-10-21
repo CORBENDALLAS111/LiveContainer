@@ -46,6 +46,7 @@ struct LCHomeIconArtwork: View {
         }
         .buttonStyle(LCHomeIconPressStyle())
         .disabled(model.isSigningInProgress)
+        .accessibilityIdentifier("lifecontainer.appIcon." + model.bundleIdentifier)
         .accessibilityLabel(model.displayName)
         .accessibilityValue(model.isSigningInProgress ? "Signing" : model.uiIsLocked ? "Locked" : "")
         .accessibilityHint("lcos.home.iconHint".loc)
@@ -60,6 +61,7 @@ struct LCHomeIconArtwork: View {
                             .frame(width: 36, height: 36).contentShape(Circle())
                     }.buttonStyle(.plain)
                         .disabled(model.isSigningInProgress)
+                        .accessibilityIdentifier("lifecontainer.remove." + model.bundleIdentifier)
                         .accessibilityLabel("lc.appBanner.uninstall".loc + " " + model.displayName)
                     Spacer(minLength: 0)
                 }.frame(width: side + 12).offset(x: -6, y: -12)
