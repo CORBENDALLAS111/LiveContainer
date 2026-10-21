@@ -107,7 +107,7 @@ void LCOSOfferRecording(void) {
             if (!presenter || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return;
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:LCOSAutomationText(@"Record taps?", @"Записать нажатия?") message:LCOSAutomationText(@"Stop saves the scenario. Keyboard input and scrolling are not recorded.", @"Стоп сохраняет сценарий. Клавиатура и прокрутка не записываются.") preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:LCOSAutomationText(@"Skip", @"Пропустить") style:UIAlertActionStyleCancel handler:nil]];
-            [alert addAction:[UIAlertAction actionWithTitle:LCOSAutomationText(@"Record", @"Записать") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 400 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ LCOSStartRecording(); }); }]];
+            [alert addAction:[UIAlertAction actionWithTitle:LCOSAutomationText(@"Record", @"Записать") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { LCOSStartRecording(); }]];
             [presenter presentViewController:alert animated:YES completion:nil];
         });
 }

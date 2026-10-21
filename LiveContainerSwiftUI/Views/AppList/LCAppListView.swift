@@ -316,7 +316,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                 })
                             } label: {
                                 Label("add", systemImage: "plus")
-                            }
+                            }.lcFixedInstallOrder()
 
                         } else {
                             ProgressView().progressViewStyle(.circular).padding(.horizontal, 8)

@@ -34,6 +34,17 @@
     for (UIView *child in view.subviews) { UILabel *found = [self recordLabel:child]; if (found) return found; }
     return nil;
 }
+- (BOOL)hasRecordButton:(UIView *)view {
+    if ([view.accessibilityIdentifier isEqual:@"lcos.record.stop"]) return YES;
+    for (UIView *child in view.subviews) if ([self hasRecordButton:child]) return YES;
+    return NO;
+}
+- (void)whenRecording:(NSUInteger)attempt ready:(void (^)(void))ready {
+    if ([self hasRecordButton:self.window] || attempt >= 60) { ready(); return; }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50*NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        [self whenRecording:attempt+1 ready:ready];
+    });
+}
 - (void)gesturePressed { self.gestures++; [self pressed]; }
 - (void)pressed { self.count++; self.status.text = [NSString stringWithFormat:@"Button activations: %ld", (long)self.count]; }
 - (NSString *)path:(NSString *)name { return [NSHomeDirectory() stringByAppendingPathComponent:[@"Documents/" stringByAppendingString:name]]; }
@@ -102,7 +113,7 @@
                 CGPoint point = [record convertPoint:CGPointMake(record.bounds.size.width/2, record.bounds.size.height/2) toView:self.window];
                 if (record) LCOSTapAtPoint(self.window, point, ^(BOOL delivered) {});
             });
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [self whenRecording:0 ready:^{
                 LCOSTapAtPoint(self.window, CGPointMake(self.window.bounds.size.width/2, self.window.bounds.size.height*0.7), ^(BOOL delivered) {
                     LCOSTapAtPoint(self.window, CGPointMake(self.window.bounds.size.width/2, 225), ^(BOOL webDelivered) {
                     LCOSStopRecording();
@@ -136,7 +147,7 @@
                     });
                     });
                 });
-            });
+            }]; });
         });
     }); };
     return YES;

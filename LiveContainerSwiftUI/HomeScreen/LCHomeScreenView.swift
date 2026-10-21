@@ -205,7 +205,7 @@ struct LCHomeScreenView: View {
                         Menu {
                             Button("lc.appList.installFromIpa".loc, action: importIPA)
                             Button("lc.appList.installFromUrl".loc, action: importURL)
-                        } label: { chromeIcon("plus") }.disabled(importing)
+                        } label: { chromeIcon("plus") }.lcFixedInstallOrder().disabled(importing)
                         .accessibilityLabel("lc.appList.installFromIpa".loc)
                     }
                     if let openSideStore {

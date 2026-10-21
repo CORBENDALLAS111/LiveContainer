@@ -1,6 +1,10 @@
 import SwiftUI
 
 extension View {
+    @ViewBuilder func lcFixedInstallOrder() -> some View {
+        if #available(iOS 16.0, *) { self.menuOrder(.fixed) }
+        else { self }
+    }
     func lcHomeScrollVeil() -> some View {
         modifier(LCHomeScrollVeil())
     }
