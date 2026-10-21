@@ -15,6 +15,7 @@ xcrun --sdk iphoneos clang \
   -fvisibility=hidden \
   -dynamiclib \
   -framework UIKit \
+  -framework CoreGraphics \
   -framework Foundation \
   -Wl,-install_name,@rpath/ChatGPTUsage.dylib \
   -o "$OUT/ChatGPTUsage.dylib" \
