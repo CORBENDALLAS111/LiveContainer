@@ -26,7 +26,7 @@ LIMITATIONS:
 * The overlay is deliberately global within the ChatGPT app, not limited to chat route.
 * A future verified usage provider could supply automatic counts, but it is NOT in MVP.
 * Versions and app layout may change. A valid app guest setup is required.
-* iOS/LiveContainer signing happens on the device; GitHub output is unsigned.
+* The macOS CI output is ad-hoc codesigned to avoid an entirely missing signature. This does NOT substitute for device-specific signing. In LiveContainer, IMPORT the dylib through the Tweaks tab and tap Sign; do not only copy an unsigned file into Documents/Tweaks.
 
 BUILD:
 On macOS with Xcode/iPhoneOS SDK installed:
@@ -36,3 +36,8 @@ Produces build/ChatGPTUsage.dylib and build/ChatGPTUsage-LiveContainer.zip.
 SECURITY:
 Only use on apps that you own or have permission to modify. No user data leaves
 the device through the tweak itself.
+
+DEB PACKAGES:
+* ChatGPTUsage_1.0.2_iphoneos-arm64.deb: jailbreak rootless layout (/var/jb/Library/MobileSubstrate/DynamicLibraries).
+* ChatGPTUsage_1.0.2_iphoneos-arm.deb: classic rootful layout (/Library/MobileSubstrate/DynamicLibraries).
+* LiveContainer does not directly load .deb; unpack the archive and import ChatGPTUsage.dylib, then Sign inside LiveContainer. Do not install either .deb on a non-jailbroken device.
