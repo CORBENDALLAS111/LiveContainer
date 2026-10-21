@@ -1,6 +1,49 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "life.market.title" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Tweak Marketplace"}}, "ru": {"stringUnit": {"state": "translated", "value": "Каталог твиков"}}}},
+    "life.market.subtitle" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Repositories. App tweaks. One place."}}, "ru": {"stringUnit": {"state": "translated", "value": "Репозитории и твики для приложений."}}}},
+    "life.market.sources" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Repositories"}}, "ru": {"stringUnit": {"state": "translated", "value": "Репозитории"}}}},
+    "life.market.addSource" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add Repository"}}, "ru": {"stringUnit": {"state": "translated", "value": "Добавить репозиторий"}}}},
+    "life.market.add" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add"}}, "ru": {"stringUnit": {"state": "translated", "value": "Добавить"}}}},
+    "life.market.sourceHelp" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enter an HTTPS Sileo/APT repository URL. Flat Packages indexes are supported. Paid packages requiring store authentication cannot be downloaded here."}}, "ru": {"stringUnit": {"state": "translated", "value": "Укажи HTTPS-адрес репозитория Sileo/APT с индексом Packages. Платные пакеты с авторизацией магазина здесь не скачиваются."}}}},
+    "life.market.loading" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Loading…"}}, "ru": {"stringUnit": {"state": "translated", "value": "Загрузка…"}}}},
+    "life.market.packages" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Packages"}}, "ru": {"stringUnit": {"state": "translated", "value": "Пакеты"}}}},
+    "life.market.empty" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add a repository to browse its packages."}}, "ru": {"stringUnit": {"state": "translated", "value": "Добавь репозиторий, чтобы увидеть пакеты."}}}},
+    "life.market.compatibility" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "These are repository listings, not verified compatible tweaks. Select an app and inspect the DEB. System tweaks, maintainer scripts and unresolved dependencies are rejected. Rootless layout alone does not guarantee compatibility."}}, "ru": {"stringUnit": {"state": "translated", "value": "Это список пакетов, а не гарантия совместимости. Выбери приложение и проверь DEB. Системные твики, установочные скрипты и неподдерживаемые зависимости отклоняются. Rootless сам по себе не гарантирует совместимость."}}}},
+    "life.market.search" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Search Tweaks"}}, "ru": {"stringUnit": {"state": "translated", "value": "Поиск твиков"}}}},
+    "life.market.inspect" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Download and Check Compatibility"}}, "ru": {"stringUnit": {"state": "translated", "value": "Скачать и проверить совместимость"}}}},
+    "life.market.indexError" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "No readable Packages index was found. Check the repository path."}}, "ru": {"stringUnit": {"state": "translated", "value": "Индекс Packages не найден или не читается. Проверь адрес репозитория."}}}},
+    "life.jit.title" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Built-in JIT"}}, "ru": {"stringUnit": {"state": "translated", "value": "Встроенный JIT"}}}},
+    "life.jit.explanation" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "A separate StikJIT helper prepares the Developer Disk Image and attaches to your guest. JIT guests run in LiveProcess so the debugger stays alive."}}, "ru": {"stringUnit": {"state": "translated", "value": "Отдельное расширение StikJIT подготавливает образ разработчика и подключается к приложению. Приложения с JIT запускаются в LiveProcess, чтобы отладчик продолжал работать."}}}},
+    "life.jit.setup" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Set Up Built-in JIT"}}, "ru": {"stringUnit": {"state": "translated", "value": "Настроить встроенный JIT"}}}},
+    "life.jit.paired" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Pairing file imported"}}, "ru": {"stringUnit": {"state": "translated", "value": "Pairing-файл импортирован"}}}},
+    "life.jit.notPaired" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import this device’s remote pairing file first."}}, "ru": {"stringUnit": {"state": "translated", "value": "Сначала импортируй remote pairing-файл этого устройства."}}}},
+    "life.jit.import" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import Pairing File"}}, "ru": {"stringUnit": {"state": "translated", "value": "Импортировать pairing-файл"}}}},
+    "life.jit.pairingGuide" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "How to Get a Pairing File"}}, "ru": {"stringUnit": {"state": "translated", "value": "Как получить pairing-файл"}}}},
+    "life.jit.check" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Check VPN and Prepare Device"}}, "ru": {"stringUnit": {"state": "translated", "value": "Проверить VPN и подготовить устройство"}}}},
+    "life.jit.removePairing" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Remove Pairing File"}}, "ru": {"stringUnit": {"state": "translated", "value": "Удалить pairing-файл"}}}},
+    "life.jit.requirements" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Requires iOS 26+, LocalDevVPN, Developer Mode and get-task-allow signing. Keep app extensions when signing. Enable “JIT Required” in the guest’s settings. On TXM devices the guest must implement a compatible JIT allocator; this does not add JIT support to arbitrary apps. Tap scenarios are unavailable in LiveProcess."}}, "ru": {"stringUnit": {"state": "translated", "value": "Нужны iOS 26+, LocalDevVPN, режим разработчика и подпись с get-task-allow. Сохраняй расширения при подписи. В настройках приложения включи «Требуется JIT». На устройствах с TXM приложению нужен совместимый механизм JIT; эта функция не добавляет его произвольным приложениям. Сценарии нажатий недоступны в LiveProcess."}}}},
+    "life.jit.log" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "JIT Log"}}, "ru": {"stringUnit": {"state": "translated", "value": "Журнал JIT"}}}},
+    "life.jit.invalidPairing" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Invalid or oversized pairing plist."}}, "ru": {"stringUnit": {"state": "translated", "value": "Некорректный или слишком большой pairing plist."}}}},
+    "life.jit.deviceOnly" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Built-in JIT requires a physical device."}}, "ru": {"stringUnit": {"state": "translated", "value": "Встроенный JIT работает только на физическом устройстве."}}}},
+    "life.jit.requires26" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Built-in JIT requires iOS 26+ and an arm64 guest without compatibility mode."}}, "ru": {"stringUnit": {"state": "translated", "value": "Встроенному JIT нужны iOS 26+ и приложение arm64 без режима совместимости."}}}},
+    "life.jit.missingHelper" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "JIT helper is missing or could not start. Reinstall with app extensions preserved."}}, "ru": {"stringUnit": {"state": "translated", "value": "Расширение JIT отсутствует или не запускается. Переустанови с сохранением расширений."}}}},
+    "life.jit.stopped" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "JIT helper stopped."}}, "ru": {"stringUnit": {"state": "translated", "value": "Расширение JIT остановлено."}}}},
+    "life.jit.starting" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Starting JIT helper…"}}, "ru": {"stringUnit": {"state": "translated", "value": "Запуск расширения JIT…"}}}},
+    "life.jit.preparing" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Preparing the Developer Disk Image. Keep LocalDevVPN connected."}}, "ru": {"stringUnit": {"state": "translated", "value": "Подготовка образа разработчика. Не отключай LocalDevVPN."}}}},
+    "life.jit.attaching" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Attaching debugger. The guest must request executable memory using its matching JIT protocol."}}, "ru": {"stringUnit": {"state": "translated", "value": "Подключение отладчика. Приложение должно запросить исполняемую память через совместимый протокол JIT."}}}},
+    "life.jit.timeout" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "JIT session reached its five-minute limit. Reconnect if the guest needs more executable memory."}}, "ru": {"stringUnit": {"state": "translated", "value": "Сеанс JIT достиг лимита в пять минут. Переподключись, если приложению нужна дополнительная исполняемая память."}}}},
+    "life.jit.noAutomation" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Tap scenarios cannot run in the LiveProcess mode required by built-in JIT."}}, "ru": {"stringUnit": {"state": "translated", "value": "Сценарии нажатий недоступны в режиме LiveProcess, необходимом встроенному JIT."}}}},
+    "life.deb.guest" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Guest application"}}, "ru": {"stringUnit": {"state": "translated", "value": "Приложение"}}}},
+    "life.deb.select" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Select an app"}}, "ru": {"stringUnit": {"state": "translated", "value": "Выбери приложение"}}}},
+    "life.deb.import" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Import .deb"}}, "ru": {"stringUnit": {"state": "translated", "value": "Импортировать .deb"}}}},
+    "life.deb.inspection" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Package inspection"}}, "ru": {"stringUnit": {"state": "translated", "value": "Проверка пакета"}}}},
+    "life.deb.trust" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "I trust this package and its native code"}}, "ru": {"stringUnit": {"state": "translated", "value": "Я доверяю пакету и его исполняемому коду"}}}},
+    "life.deb.install" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Install to App"}}, "ru": {"stringUnit": {"state": "translated", "value": "Установить в приложение"}}}},
+    "life.deb.installed" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Installed packages for selected app"}}, "ru": {"stringUnit": {"state": "translated", "value": "Установленные пакеты приложения"}}}},
+    "life.deb.title" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Debian Packages"}}, "ru": {"stringUnit": {"state": "translated", "value": "Пакеты Debian"}}}},
+    "life.deb.failed" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Package operation failed"}}, "ru": {"stringUnit": {"state": "translated", "value": "Не удалось выполнить операцию"}}}},
     "lcos.install.sidestoreDescription" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Prepare an IPA and continue signing in SideStore. Your original IPA is preserved."}}, "ru": {"stringUnit": {"state": "translated", "value": "Подготовьте IPA и продолжите подпись в SideStore. Исходный IPA сохраняется."}}}},
     "lcos.automation.recordAtLaunch" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Offer recording at app launch"}}, "ru": {"stringUnit": {"state": "translated", "value": "Предлагать запись при запуске приложения"}}}},
     "lcos.automation.recordHelp" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "At the next regular app launch, choose Record or Skip. The visible Stop button saves taps and pauses as a scenario. Keyboard input, scrolling and system screens are not recorded. Use the same screen orientation for replay."}}, "ru": {"stringUnit": {"state": "translated", "value": "При следующем обычном запуске приложения выберите Записать или Пропустить. Видимая кнопка Стоп сохраняет нажатия и паузы в сценарий. Клавиатура, прокрутка и системные экраны не записываются. Воспроизводите в той же ориентации экрана."}}}},
@@ -337,108 +380,12 @@
       }
     }
   },
-  "lcos.home.done": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Done"
-        }
-      },
-      "ru": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Готово"
-        }
-      }
-    }
-  },
-  "lcos.home.edit": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Edit Apps"
-        }
-      },
-      "ru": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Изменить сетку"
-        }
-      }
-    }
-  },
-  "lcos.home.folder": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Folder"
-        }
-      },
-      "ru": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Папка"
-        }
-      }
-    }
-  },
-  "lcos.home.moveOut": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Move Out of Folder"
-        }
-      },
-      "ru": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Убрать из папки"
-        }
-      }
-    }
-  },
-  "lcos.home.folderDragHint": {
-    "extractionState": "manual",
-    "localizations": {
-      "en": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Drag an app outside the folder to move it back to the grid."
-        }
-      },
-      "ru": {
-        "stringUnit": {
-          "state": "translated",
-          "value": "Перетащите приложение за пределы папки, чтобы вернуть его в сетку."
-        }
-      }
-    }
-  },
-    "lcos.home.enabled" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App Grid"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сетка приложений"
-          }
-        }
-      }
-    },
+  "lcos.home.done": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Done"}}, "ru": {"stringUnit": {"state": "translated", "value": "Готово"}}, "de": {"stringUnit": {"state": "translated", "value": "Fertig"}}, "fr": {"stringUnit": {"state": "translated", "value": "Terminé"}}, "es": {"stringUnit": {"state": "translated", "value": "OK"}}}},
+  "lcos.home.edit": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Edit Apps"}}, "ru": {"stringUnit": {"state": "translated", "value": "Изменить сетку"}}, "de": {"stringUnit": {"state": "translated", "value": "Apps bearbeiten"}}, "fr": {"stringUnit": {"state": "translated", "value": "Modifier les apps"}}, "es": {"stringUnit": {"state": "translated", "value": "Editar apps"}}}},
+  "lcos.home.folder": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Folder"}}, "ru": {"stringUnit": {"state": "translated", "value": "Папка"}}, "de": {"stringUnit": {"state": "translated", "value": "Ordner"}}, "fr": {"stringUnit": {"state": "translated", "value": "Dossier"}}, "es": {"stringUnit": {"state": "translated", "value": "Carpeta"}}}},
+  "lcos.home.moveOut": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Move Out of Folder"}}, "ru": {"stringUnit": {"state": "translated", "value": "Убрать из папки"}}, "de": {"stringUnit": {"state": "translated", "value": "Aus Ordner bewegen"}}, "fr": {"stringUnit": {"state": "translated", "value": "Sortir du dossier"}}, "es": {"stringUnit": {"state": "translated", "value": "Sacar de la carpeta"}}}},
+  "lcos.home.folderDragHint": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Drag an app outside the folder to move it back to the grid."}}, "ru": {"stringUnit": {"state": "translated", "value": "Перетащите приложение за пределы папки, чтобы вернуть его в сетку."}}, "de": {"stringUnit": {"state": "translated", "value": "Ziehe eine App aus dem Ordner zurück auf den Home-Bildschirm."}}, "fr": {"stringUnit": {"state": "translated", "value": "Faites glisser une app hors du dossier pour la remettre sur l’écran d’accueil."}}, "es": {"stringUnit": {"state": "translated", "value": "Arrastra una app fuera de la carpeta para devolverla a la pantalla de inicio."}}}},
+    "lcos.home.enabled" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "App Grid"}}, "ru": {"stringUnit": {"state": "translated", "value": "Сетка приложений"}}, "de": {"stringUnit": {"state": "translated", "value": "App-Raster"}}, "fr": {"stringUnit": {"state": "translated", "value": "Grille des apps"}}, "es": {"stringUnit": {"state": "translated", "value": "Cuadrícula de apps"}}}},
     "lcos.home.wallpaper" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -507,74 +454,10 @@
         }
       }
     },
-    "lcos.home.list" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show App List"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показать список приложений"
-          }
-        }
-      }
-    },
-    "lcos.home.options" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Home Screen Options"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Параметры рабочего стола"
-          }
-        }
-      }
-    },
-    "lcos.home.search" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search Apps"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Поиск приложений"
-          }
-        }
-      }
-    },
-    "lcos.home.page" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page %lld"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Страница %lld"
-          }
-        }
-      }
-    },
+    "lcos.home.list" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Show App List"}}, "ru": {"stringUnit": {"state": "translated", "value": "Показать список приложений"}}, "de": {"stringUnit": {"state": "translated", "value": "App-Liste anzeigen"}}, "fr": {"stringUnit": {"state": "translated", "value": "Afficher la liste des apps"}}, "es": {"stringUnit": {"state": "translated", "value": "Mostrar lista de apps"}}}},
+    "lcos.home.options" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Home Screen Options"}}, "ru": {"stringUnit": {"state": "translated", "value": "Параметры рабочего стола"}}, "de": {"stringUnit": {"state": "translated", "value": "Home-Bildschirmoptionen"}}, "fr": {"stringUnit": {"state": "translated", "value": "Options de l’écran d’accueil"}}, "es": {"stringUnit": {"state": "translated", "value": "Opciones de la pantalla de inicio"}}}},
+    "lcos.home.search" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Search Apps"}}, "ru": {"stringUnit": {"state": "translated", "value": "Поиск приложений"}}, "de": {"stringUnit": {"state": "translated", "value": "Apps suchen"}}, "fr": {"stringUnit": {"state": "translated", "value": "Rechercher des apps"}}, "es": {"stringUnit": {"state": "translated", "value": "Buscar apps"}}}},
+    "lcos.home.page" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Page %lld"}}, "ru": {"stringUnit": {"state": "translated", "value": "Страница %lld"}}, "de": {"stringUnit": {"state": "translated", "value": "Seite %lld"}}, "fr": {"stringUnit": {"state": "translated", "value": "Page %lld"}}, "es": {"stringUnit": {"state": "translated", "value": "Página %lld"}}}},
     "lcos.home.inDock" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -592,23 +475,7 @@
         }
       }
     },
-    "lcos.home.noResults" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No apps found"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Приложения не найдены"
-          }
-        }
-      }
-    },
+    "lcos.home.noResults" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "No apps found"}}, "ru": {"stringUnit": {"state": "translated", "value": "Приложения не найдены"}}, "de": {"stringUnit": {"state": "translated", "value": "Keine Apps gefunden"}}, "fr": {"stringUnit": {"state": "translated", "value": "Aucune app trouvée"}}, "es": {"stringUnit": {"state": "translated", "value": "No se encontraron apps"}}}},
     "lcos.home.dockFull" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -626,57 +493,9 @@
         }
       }
     },
-    "lcos.home.reset" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset Home Screen Layout"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сбросить расположение иконок"
-          }
-        }
-      }
-    },
-    "lcos.home.emptyTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your apps. Your space."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ваши приложения. Ваше пространство."
-          }
-        }
-      }
-    },
-    "lcos.home.emptyBody" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Install your first IPA to make this Home Screen yours."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Установите первый IPA — и приложение появится на рабочем столе."
-          }
-        }
-      }
-    },
+    "lcos.home.reset" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Reset Home Screen Layout"}}, "ru": {"stringUnit": {"state": "translated", "value": "Сбросить расположение иконок"}}, "de": {"stringUnit": {"state": "translated", "value": "Home-Bildschirmlayout zurücksetzen"}}, "fr": {"stringUnit": {"state": "translated", "value": "Réinitialiser la disposition"}}, "es": {"stringUnit": {"state": "translated", "value": "Restablecer distribución"}}}},
+    "lcos.home.emptyTitle" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Your apps. Your space."}}, "ru": {"stringUnit": {"state": "translated", "value": "Ваши приложения. Ваше пространство."}}, "de": {"stringUnit": {"state": "translated", "value": "Deine Apps. Dein Platz."}}, "fr": {"stringUnit": {"state": "translated", "value": "Vos apps. Votre espace."}}, "es": {"stringUnit": {"state": "translated", "value": "Tus apps. Tu espacio."}}}},
+    "lcos.home.emptyBody" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Install your first IPA to make this Home Screen yours."}}, "ru": {"stringUnit": {"state": "translated", "value": "Установите первый IPA — и приложение появится на рабочем столе."}}, "de": {"stringUnit": {"state": "translated", "value": "Installiere deine erste IPA für deinen Home-Bildschirm."}}, "fr": {"stringUnit": {"state": "translated", "value": "Installez votre premier IPA pour personnaliser cet écran d’accueil."}}, "es": {"stringUnit": {"state": "translated", "value": "Instala tu primer IPA para personalizar esta pantalla de inicio."}}}},
     "lcos.home.addDock" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -711,23 +530,7 @@
         }
       }
     },
-    "lcos.home.iconHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to open. Touch and hold for app settings and containers."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нажмите, чтобы открыть. Удерживайте для настроек приложения и выбора контейнера."
-          }
-        }
-      }
-    },
+    "lcos.home.iconHint" : {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Tap to open. Touch and hold for app settings and containers."}}, "ru": {"stringUnit": {"state": "translated", "value": "Нажмите, чтобы открыть. Удерживайте для настроек приложения и выбора контейнера."}}, "de": {"stringUnit": {"state": "translated", "value": "Zum Öffnen tippen. Für App-Einstellungen gedrückt halten."}}, "fr": {"stringUnit": {"state": "translated", "value": "Touchez pour ouvrir. Maintenez pour les réglages de l’app."}}, "es": {"stringUnit": {"state": "translated", "value": "Toca para abrir. Mantén pulsado para ver los ajustes."}}}},
     "lc.appBanner.addToHomeScreen" : {
       "extractionState" : "manual",
       "localizations" : {

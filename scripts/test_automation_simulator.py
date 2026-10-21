@@ -55,7 +55,7 @@ try:
     shutil.copyfile(evidence, out / 'automation-evidence.json')
     result = json.loads(evidence.read_text())
     print(json.dumps(result, indent=2))
-    assert all(result[key] is True for key in ['actual_uikit_button_and_point', 'raw_touch_gesture', 'swiftui_point', 'recorded_profile_replay', 'background_cancellation', 'disabled_does_not_execute'])
+    assert all(result[key] is True for key in ['actual_uikit_button_and_point', 'raw_touch_gesture', 'swiftui_point', 'recorded_profile_replay', 'recording_prompt_starts_capture', 'background_cancellation', 'disabled_does_not_execute'])
     subprocess.run(['xcrun', 'simctl', 'io', device, 'screenshot', str(out / 'runner.png')], check=True)
 finally:
     subprocess.run(['xcrun', 'simctl', 'shutdown', device], capture_output=True)

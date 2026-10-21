@@ -8,14 +8,14 @@ root = pathlib.Path(__file__).resolve().parent.parent
 app = root / 'artifacts/home-preview-build/LCOSHomePreview.app'
 app.mkdir(parents=True, exist_ok=True)
 sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
-sources = ['Tests/HomeScreenPreview/PreviewHost.swift', 'LiveContainerSwiftUI/HomeScreen/Core/LCHomeLayout.swift',
+sources = ['Tests/HomeScreenPreview/PreviewHost.swift', 'LiveContainerSwiftUI/HomeScreen/Core/LCHomeLayout.swift', 'LiveContainerSwiftUI/HomeScreen/Core/LCHomeMetrics.swift',
            'LiveContainerSwiftUI/HomeScreen/LCHomeIconArtwork.swift', 'LiveContainerSwiftUI/HomeScreen/LCHomeGlass.swift', 'LiveContainerSwiftUI/HomeScreen/LCHomeDragSource.swift', 'LiveContainerSwiftUI/HomeScreen/LCHomeScreenView.swift']
 subprocess.run(['xcrun', '--sdk', 'iphonesimulator', 'swiftc', '-target', 'arm64-apple-ios15.0-simulator', '-sdk', sdk,
                 '-parse-as-library', '-D', 'DEBUG', *[str(root / source) for source in sources], '-o', str(app / 'LCOSHomePreview')], check=True)
 (app / 'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'org.example.lcoshomepreview',
     'CFBundleExecutable': 'LCOSHomePreview', 'CFBundleName': 'Home Screen Preview', 'CFBundleVersion': '1',
     'CFBundleShortVersionString': '1.0', 'CFBundlePackageType': 'APPL', 'MinimumOSVersion': '15.0',
-    'CFBundleSupportedPlatforms': ['iPhoneSimulator'], 'UIDeviceFamily': [1, 2], 'UILaunchScreen': {}}))
+    'CFBundleSupportedPlatforms': ['iPhoneSimulator'], 'UIDeviceFamily': [1, 2], 'UILaunchScreen': {}, 'UISupportedInterfaceOrientations': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight']}))
 catalog = json.loads((root / 'Resources/Localizable.xcstrings').read_text(encoding='utf-8'))
 for language in ['en', 'ru']:
     translations = {key: entry['localizations'][language]['stringUnit']['value'] for key, entry in catalog['strings'].items()

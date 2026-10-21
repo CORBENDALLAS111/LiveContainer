@@ -239,7 +239,13 @@ class LCAppModel: ObservableObject, Hashable {
         let currentDataFolder = containerFolderName ?? uiSelectedContainer?.folderName
         
         let classicMode = appInfo.defaultClassicMode
-        let multitask = classicMode == 0 ? (multitask ?? shouldLaunchInMultitaskMode) : false
+        let builtInJIT = LCUtils.appGroupUserDefault.integer(forKey: "LCJITEnablerType") == JITEnablerType.builtIn.rawValue && (forceJIT ?? appInfo.isJITNeeded)
+        if builtInJIT {
+            guard #available(iOS 26.0, *), classicMode == 0, !appInfo.is32bit else { throw PackageFailure.invalid("life.jit.requires26".loc) }
+            guard FileManager.default.fileExists(atPath: LifeBuiltInJIT.pairingURL.path) else { throw PackageFailure.invalid("life.jit.notPaired".loc) }
+            guard automationID == nil else { throw PackageFailure.invalid("life.jit.noAutomation".loc) }
+        }
+        let multitask = classicMode == 0 ? (builtInJIT || (multitask ?? shouldLaunchInMultitaskMode)) : false
         
         if MultitaskManager.isMultitasking() || multitask,
            let currentDataFolder {

@@ -20,6 +20,11 @@
 @property(nonatomic,strong) NSMutableDictionary *file;
 @end
 @implementation FixtureDelegate
+- (UILabel *)recordLabel:(UIView *)view {
+    if ([view isKindOfClass:UILabel.class] && ([((UILabel *)view).text isEqual:@"Record"] || [((UILabel *)view).text isEqual:@"Записать"])) return (UILabel *)view;
+    for (UIView *child in view.subviews) { UILabel *found = [self recordLabel:child]; if (found) return found; }
+    return nil;
+}
 - (void)gesturePressed { self.gestures++; [self pressed]; }
 - (void)pressed { self.count++; self.status.text = [NSString stringWithFormat:@"Button activations: %ld", (long)self.count]; }
 - (NSString *)path:(NSString *)name { return [NSHomeDirectory() stringByAppendingPathComponent:[@"Documents/" stringByAppendingString:name]]; }
@@ -76,8 +81,13 @@
             NSString *message = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"LCOSAutomationLastResult"][@"message"];
             BOOL activation = self.count == 4 && ([message hasPrefix:@"Completed"] || [message hasPrefix:@"Выполнено"]);
             BOOL rawGesture = self.gestures == 1, swiftUI = self.swiftUITaps == 1;
-            LCOSStartRecording();
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC/4), dispatch_get_main_queue(), ^{
+            LCOSOfferRecording();
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                UILabel *record = [self recordLabel:self.window.rootViewController.presentedViewController.view];
+                CGPoint point = [record convertPoint:CGPointMake(record.bounds.size.width/2, record.bounds.size.height/2) toView:self.window];
+                if (record) LCOSTapAtPoint(self.window, point, ^(BOOL delivered) {});
+            });
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                 LCOSTapAtPoint(self.window, CGPointMake(self.window.bounds.size.width/2, self.window.bounds.size.height*0.7), ^(BOOL delivered) {
                     LCOSStopRecording();
                     NSDictionary *saved = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[self path:@"LCOSAutomations.json"]] options:0 error:nil];
@@ -100,7 +110,7 @@
                             LCOSStartRecording();
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 BOOL disabled = self.count == 6;
-                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO};
+                                NSDictionary *evidence = @{@"actual_uikit_button_and_point":@(activation), @"raw_touch_gesture":@(rawGesture), @"swiftui_point":@(swiftUI), @"recorded_profile_replay":@(replay), @"recording_prompt_starts_capture":@(captured), @"background_cancellation":@(cancellation), @"disabled_does_not_execute":@(disabled), @"physical_device_tested":@NO};
                                 [[NSJSONSerialization dataWithJSONObject:evidence options:NSJSONWritingPrettyPrinted error:nil] writeToFile:[self path:@"automation-evidence.json"] atomically:YES];
                                 self.status.text = activation && replay && cancellation && disabled ? @"Touch and recording checks passed" : @"Touch and recording checks FAILED";
                             });

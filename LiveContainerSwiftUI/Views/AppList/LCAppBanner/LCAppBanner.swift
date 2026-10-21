@@ -29,6 +29,8 @@ struct LCAppBanner: UIViewControllerRepresentable {
 
     @AppStorage("dynamicColors", store: LCUtils.appGroupUserDefault) private var dynamicColors = true
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) private var darkModeIcon = false
+    @Environment(\.colorScheme) private var scheme
+    private var resolvedDarkIcon: Bool { homeScreen ? scheme == .dark : darkModeIcon }
     private let sharedModel = DataManager.shared.model
 
     init(appModel: LCAppModel, delegate: LCAppBannerDelegate, homeScreen: Bool = false,
@@ -44,7 +46,7 @@ struct LCAppBanner: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> UIViewController {
-        let viewController = LCAppBannerViewController(delegate: delegate, config: LCAppBannerConfiguration(model: model, dynamicColors: dynamicColors, darkModeIcon: darkModeIcon), homeScreen: homeScreen, iconSide: iconSide, showLabel: showLabel)
+        let viewController = LCAppBannerViewController(delegate: delegate, config: LCAppBannerConfiguration(model: model, dynamicColors: dynamicColors, darkModeIcon: resolvedDarkIcon), homeScreen: homeScreen, iconSide: iconSide, showLabel: showLabel)
         viewController.homeEditing = homeEditing
         viewController.onToggleDock = onToggleDock
         viewController.isDocked = isDocked
@@ -58,7 +60,7 @@ struct LCAppBanner: UIViewControllerRepresentable {
         viewController.update(
             model: model,
             dynamicColors: dynamicColors,
-            darkModeIcon: darkModeIcon
+            darkModeIcon: resolvedDarkIcon
         )
         viewController.homeEditing = homeEditing
         viewController.updateHomeIcon(side: iconSide, showLabel: showLabel)

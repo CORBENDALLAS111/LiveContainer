@@ -1,4 +1,4 @@
-name: LiveContainer OS - Integrated IPA
+name: LifeContainer+ - Integrated IPA
 on:
   workflow_dispatch:
     inputs:
@@ -56,6 +56,10 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild archive -project LiveContainer.xcodeproj -scheme "$scheme" -archivePath "$archive_path" -sdk iphoneos -arch arm64 -configuration Release 2>&1 | tee xcodebuild.log
+      - name: Build the separate built-in JIT helper from pinned source
+        run: |
+          brew install xcodegen
+          python3 scripts/build_builtin_jit.py "$archive_path.xcarchive/Products/Applications/LiveContainer.app" 2>&1 | tee builtin-jit-build.log
       - name: Compile controlled device probe
         run: python3 scripts/build_device_probe.py
       - name: Validate actual SDK-built rootful and rootless packages
@@ -72,18 +76,18 @@ jobs:
         run: bash .github/build_github.sh
       - name: Verify integrated IPA and record provenance
         run: |
-          mv LiveContainer+SideStore.ipa LiveContainerOS+SideStore.ipa
-          mv LiveContainer.ipa LiveContainerOS-Standalone.ipa
-          python3 scripts/verify_ipa.py LiveContainerOS+SideStore.ipa --integrated --signing-injection --automations --source-commit "$GITHUB_SHA" --output build-evidence.json
-          shasum -a 256 LiveContainerOS+SideStore.ipa LiveContainerOS-Standalone.ipa > SHA256SUMS
+          mv LiveContainer+SideStore.ipa LifeContainer+SideStore.ipa
+          mv LiveContainer.ipa LifeContainer+-Standalone.ipa
+          python3 scripts/verify_ipa.py LifeContainer+SideStore.ipa --integrated --signing-injection --automations --source-commit "$GITHUB_SHA" --output build-evidence.json
+          shasum -a 256 LifeContainer+SideStore.ipa LifeContainer+-Standalone.ipa > SHA256SUMS
           git rev-parse HEAD > SOURCE_COMMIT
           git submodule status > SUBMODULES
           printenv SIDESTORE_BUILD_RUN > SIDESTORE_BUILD_RUN
       - uses: actions/upload-artifact@v4
         with:
-          name: LiveContainerOS+SideStore.ipa
+          name: LifeContainer+SideStore.ipa
           path: |
-            LiveContainerOS+SideStore.ipa
+            LifeContainer+SideStore.ipa
             SHA256SUMS
             SOURCE_COMMIT
             SUBMODULES
@@ -104,4 +108,5 @@ jobs:
             package-tests.log
             device-probe-tests.log
             signing-bridge-tests.log
+            builtin-jit-build.log
           if-no-files-found: warn

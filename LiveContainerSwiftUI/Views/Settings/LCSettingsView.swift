@@ -18,9 +18,11 @@ enum JITEnablerType : Int, CaseIterable, Identifiable {
     case SideStore = 4
     case StosDebug = 5
     case StosDebugLC = 6
+    case builtIn = 7
     
     var displayName: String {
         switch self {
+        case .builtIn: "life.jit.title".loc
         case .StikJIT: "StikDebug"
         case .StikJITLC: "StikDebug (Another LiveContainer/Multitask)"
         case .StosDebug: "StosDebug"
@@ -195,6 +197,9 @@ struct LCSettingsView: View {
                         }
                     } label: {
                         Text("lc.settings.jitEnabler".loc)
+                    }
+                    NavigationLink { LifeJITSettingsView() } label: {
+                        Label("life.jit.setup".loc, systemImage: "bolt.badge.clock")
                     }
 
                 } header: {

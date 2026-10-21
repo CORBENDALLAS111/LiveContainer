@@ -3,6 +3,19 @@ import XCTest
 @testable import HomeScreenCore
 
 final class HomeScreenCoreTests: XCTestCase {
+    func testWindowMetricsAcrossPhoneMiniAndTabletRotation() {
+        let phone = LCHomeMetrics(width: 402, height: 680, tablet: false, mini: false)
+        XCTAssertEqual(phone.columns, 4); XCTAssertEqual(phone.rows, 6)
+        let mini = LCHomeMetrics(width: 744, height: 900, tablet: true, mini: true)
+        XCTAssertEqual(mini.columns, 5); XCTAssertEqual(mini.rows, 6)
+        let pad = LCHomeMetrics(width: 1024, height: 1100, tablet: true, mini: false)
+        XCTAssertEqual(pad.columns, 5); XCTAssertEqual(pad.rows, 5)
+        for size in [(320.0, 400.0), (852, 260), (744, 900), (1133, 620)] {
+            let value = LCHomeMetrics(width: size.0, height: size.1, tablet: size.0 > 900, mini: false)
+            XCTAssertLessThanOrEqual(Double(value.columns) * (value.iconSide + 18) + value.horizontalInset * 2, size.0 + 1)
+            XCTAssertGreaterThan(value.capacity, 0)
+        }
+    }
     func testV1MigrationReturnsDockedAppsToGrid() throws {
         let old = Data(#"{"version":1,"order":["b","a"],"dock":["c"]}"#.utf8)
         let migrated = try JSONDecoder().decode(LCHomeLayout.self, from: old).reconciled(["a", "b", "c"])

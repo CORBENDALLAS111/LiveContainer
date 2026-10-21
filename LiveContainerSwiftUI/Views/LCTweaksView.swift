@@ -72,9 +72,14 @@ struct LCTweakFolderView : View {
             if isRoot {
                 Section {
                     NavigationLink {
+                        LCTweakMarketplace()
+                    } label: {
+                        Label("life.market.title".loc, systemImage: "sparkles")
+                    }
+                    NavigationLink {
                         LCDebPackageView()
                     } label: {
-                        Label("Debian Packages", systemImage: "shippingbox")
+                        Label("life.deb.title".loc, systemImage: "shippingbox")
                     }
                 }
             }

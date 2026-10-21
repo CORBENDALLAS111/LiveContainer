@@ -16,6 +16,31 @@
 #include <fts.h>
 #include <limits.h>
 struct LCArchive { struct archive *archive; const char *error; };
+int64_t lc_index_expand(const void *bytes, size_t count, void *output, size_t capacity) {
+    struct archive *a = archive_read_new();
+    if (!a) return -1;
+    archive_read_support_format_raw(a);
+    const unsigned char *m = bytes;
+    int ok = ARCHIVE_FATAL;
+    if (count >= 2 && m[0] == 0x1f && m[1] == 0x8b) ok = archive_read_support_filter_gzip(a);
+    else if (count >= 3 && m[0] == 'B' && m[1] == 'Z' && m[2] == 'h') ok = archive_read_support_filter_bzip2(a);
+    else if (count >= 6 && m[0] == 0xfd && m[1] == '7' && m[2] == 'z') ok = archive_read_support_filter_xz(a);
+    struct archive_entry *entry = NULL;
+    int64_t used = 0;
+    if (ok != ARCHIVE_OK || archive_read_open_memory(a, bytes, count) != ARCHIVE_OK || archive_read_next_header(a, &entry) != ARCHIVE_OK) used = -1;
+    while (used >= 0 && (size_t)used < capacity) {
+        int64_t n = archive_read_data(a, (char *)output + used, capacity - (size_t)used);
+        if (n < 0) { used = -1; break; }
+        if (!n) break;
+        used += n;
+    }
+    if (used >= 0 && (size_t)used == capacity) {
+        char extra;
+        if (archive_read_data(a, &extra, 1) != 0) used = -1;
+    }
+    archive_read_free(a);
+    return used;
+}
 LCArchive *lc_archive_open(const void *bytes, size_t count) {
     LCArchive *r = calloc(1, sizeof(*r));
     if (!r) return NULL;

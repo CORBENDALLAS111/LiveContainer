@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct LCHomeDragSource<Content: View>: UIViewControllerRepresentable {
     let id: String
     let iconSide: CGFloat
+    let jiggle: Bool
     let content: Content
     let begin: () -> Void
     let end: () -> Void
@@ -13,6 +14,7 @@ struct LCHomeDragSource<Content: View>: UIViewControllerRepresentable {
         LCHomeDragController(id: id, iconSide: iconSide, content: AnyView(content), begin: begin, end: end)
     }
     func updateUIViewController(_ controller: LCHomeDragController, context: Context) {
+        controller.setJiggle(jiggle)
         controller.host.rootView = AnyView(content)
         controller.id = id; controller.iconSide = iconSide; controller.begin = begin; controller.end = end
     }
@@ -98,6 +100,19 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
     func dragInteraction(_ interaction: UIDragInteraction, previewForCancelling item: UIDragItem, withDefault defaultPreview: UITargetedDragPreview) -> UITargetedDragPreview? {
         // The old folder/page may no longer be in a window. UIKit's fallback remains valid.
         host.view.window == nil ? defaultPreview : iconPreview()
+    }
+    func setJiggle(_ active: Bool) {
+        let key = "lifecontainer.editJiggle"
+        guard active else { host.view.layer.removeAnimation(forKey: key); return }
+        guard host.view.layer.animation(forKey: key) == nil else { return }
+        let seed = id.utf8.reduce(0) { ($0 + Int($1)) % 7 }
+        let motion = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        motion.values = [-0.018, 0.018, -0.018]
+        motion.duration = 0.26 + Double(seed) * 0.012
+        motion.repeatCount = .infinity
+        motion.timeOffset = Double(seed) * 0.023
+        motion.isRemovedOnCompletion = true
+        host.view.layer.add(motion, forKey: key)
     }
     private func iconPreview() -> UITargetedDragPreview {
         let parameters = UIDragPreviewParameters(); parameters.backgroundColor = .clear

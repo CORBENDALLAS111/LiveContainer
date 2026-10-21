@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 @MainActor
 struct LCDebPackageView: View {
+    var repositoryPackage: TweakRepositoryPackage? = nil
     @EnvironmentObject private var shared: SharedModel
     @State private var selectedApp = ""
     @State private var importing = false
@@ -29,19 +30,29 @@ struct LCDebPackageView: View {
     var body: some View {
         List {
             Section {
-                Picker("Guest application", selection: $selectedApp) {
-                    Text("Select an app").tag("")
+                Picker("life.deb.guest".loc, selection: $selectedApp) {
+                    Text("life.deb.select".loc).tag("")
                     ForEach(apps, id: \.self) { app in
                         Text(app.displayName).tag(app.appInfo.relativeBundlePath ?? "")
                     }
                 }
-                Button { importing = true } label: { Label("Import .deb", systemImage: "square.and.arrow.down") }
+                Button { importing = true } label: { Label("life.deb.import".loc, systemImage: "square.and.arrow.down") }
                     .disabled(app == nil || working)
+                if let package = repositoryPackage {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(package.name).font(.headline)
+                        Text(package.version + " · " + package.architecture).font(.caption).foregroundStyle(.secondary)
+                        Text(package.summary).font(.subheadline)
+                    }
+                    Button { Task { await downloadAndInspect(package) } } label: {
+                        Label("life.market.inspect".loc, systemImage: "arrow.down.circle.fill")
+                    }.disabled(app == nil || working)
+                }
             } footer: {
                 Text("Private, unlocked arm64 guests are supported in this first version. Quit the guest before changing its tweaks. Existing global tweaks are managed separately.")
             }
             if let plan {
-                Section("Package inspection") {
+                Section("life.deb.inspection".loc) {
                     Text(plan.package.control["name"].isEmpty ? plan.package.control["package"] : plan.package.control["name"])
                         .font(.headline)
                     Text("Version: \(plan.package.control["version"])")
@@ -49,14 +60,14 @@ struct LCDebPackageView: View {
                     Text("Layout: \(plan.package.layout)")
                     Text("Libraries: \(plan.binaries.keys.sorted().joined(separator: ", "))")
                     ForEach(plan.warnings, id: \.self) { warning in Text(warning).font(.footnote).foregroundStyle(.secondary) }
-                    Toggle("I trust this package and its native code", isOn: $trusted)
-                    Button("Install to App") { Task { await install(plan) } }
+                    Toggle("life.deb.trust".loc, isOn: $trusted)
+                    Button("life.deb.install".loc) { Task { await install(plan) } }
                         .disabled(!trusted || working)
                 }
             }
             if working { Section { ProgressView(phase) } }
             if !phase.isEmpty && !working { Section { Text(phase).font(.footnote) } }
-            Section("Installed packages for selected app") {
+            Section("life.deb.installed".loc) {
                 ForEach(receipts) { receipt in
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(receipt.name, isOn: Binding(get: { enabled.contains(receipt.id) }, set: { value in
@@ -72,7 +83,7 @@ struct LCDebPackageView: View {
                 }
             }
         }
-        .navigationTitle("Debian Packages")
+        .navigationTitle("life.deb.title".loc)
         .disabled(working)
         .task(id: selectedApp) { await selectGuest() }
         .onForeground { Task { do { try await refresh() } catch { report(error) } } }
@@ -82,7 +93,7 @@ struct LCDebPackageView: View {
             case .failure(let error): report(error)
             }
         }
-        .alert("Package operation failed", isPresented: $showError) { Button("OK", role: .cancel) {} } message: { Text(errorMessage) }
+        .alert("life.deb.failed".loc, isPresented: $showError) { Button("OK", role: .cancel) {} } message: { Text(errorMessage) }
         .confirmationDialog("Remove this package's files? Guest app data will be preserved.", isPresented: Binding(
             get: { removal != nil }, set: { if !$0 { removal = nil } })) {
             if let receipt = removal {
@@ -96,6 +107,22 @@ struct LCDebPackageView: View {
         errorMessage = error.localizedDescription
         showError = true
         phase = "Failed: " + error.localizedDescription
+    }
+
+    private func downloadAndInspect(_ package: TweakRepositoryPackage) async {
+        guard !working, app != nil else { return }
+        working = true; phase = "life.market.loading".loc
+        do {
+            let data = try await LCTweakDownload.fetch(package.download, limit: package.size)
+            try await Task.detached { try package.verify(data) }.value
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let file = directory.appendingPathComponent("package.deb")
+            try data.write(to: file, options: .atomic)
+            working = false
+            await inspect(file)
+        } catch { working = false; report(error) }
     }
 
     private func selectGuest() async {

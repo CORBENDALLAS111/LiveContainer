@@ -1163,6 +1163,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     }
 
     func jitLaunch(withPID pid: Int, withScript script: String? = nil, appName: String) async {
+        if LCUtils.appGroupUserDefault.integer(forKey: "LCJITEnablerType") == JITEnablerType.builtIn.rawValue {
+            await MainActor.run {
+                do {
+                    try LifeBuiltInJIT.send(pid: pid, script: script) { message in
+                        self.jitLog += message + "\n"
+                        NSLog("[LifeJIT] %@", message)
+                    }
+                } catch { self.errorInfo = error.localizedDescription; self.errorShow = true }
+            }
+            return
+        }
         await MainActor.run {
             // Base64 '+' must survive URL/form decoding in the external debugger.
             let encodedData = script?.addingPercentEncoding(withAllowedCharacters: .alphanumerics)

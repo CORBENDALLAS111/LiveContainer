@@ -21,6 +21,7 @@
 - (void)_kill:(int)arg1;
 - (void)setRequestCancellationBlock:(void(^)(NSUUID *uuid, NSError *error))callback;
 - (void)setRequestInterruptionBlock:(void(^)(NSUUID *))callback;
+- (void)setRequestCompletionBlock:(void(^)(NSUUID *uuid, NSArray *items))callback;
 - (void)_hostDidEnterBackgroundNote:(NSNotification *)note;
 - (void)_hostWillResignActiveNote:(NSNotification *)note;
 @end

@@ -48,6 +48,13 @@ private struct LCHomeScrollVeil: ViewModifier {
     }
 }
 
+struct LCHomeCleanScrollEdges: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) { content.scrollEdgeEffectHidden(true, for: .all) }
+        else { content }
+    }
+}
+
 struct LCHomeJiggle: ViewModifier {
     let active: Bool
     let id: String
