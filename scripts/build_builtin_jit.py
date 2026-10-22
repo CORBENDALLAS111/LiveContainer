@@ -21,9 +21,11 @@ framework = work / 'StikJIT.xcarchive/Products/Library/Frameworks/StikJIT.framew
 framework_info = plistlib.loads((framework / 'Info.plist').read_bytes())
 for key, expected in {'CFBundleIdentifier': 'com.stik.StikJIT', 'CFBundleExecutable': 'StikJIT',
                       'CFBundlePackageType': 'FMWK', 'CFBundleShortVersionString': '1.9.0',
-                      'CFBundleVersion': '10', 'CFBundleSupportedPlatforms': ['iPhoneOS']}.items():
+                      'CFBundleSupportedPlatforms': ['iPhoneOS']}.items():
     if framework_info.get(key) != expected:
         raise ValueError(f'Invalid StikJIT framework metadata: {key}={framework_info.get(key)!r}')
+if not isinstance(framework_info.get('CFBundleVersion'), str) or not framework_info['CFBundleVersion'].strip():
+    raise ValueError('Missing StikJIT framework build version')
 destination = app / 'Frameworks/StikJIT.framework'
 shutil.copytree(framework, destination, dirs_exist_ok=True)
 info = plistlib.loads((app / 'Info.plist').read_bytes())
