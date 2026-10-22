@@ -15,6 +15,7 @@ final class HomeEditingUITests: XCTestCase {
 
         // Real stationary touch on empty scroll content, without an edit-mode launch flag.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)).press(forDuration: 0.7)
+        print("BLANK TRACE", app.staticTexts["fixture.blankTrace"].label)
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         XCTAssertGreaterThan(removes.count, 0)
         let moving = NSPredicate(format: "label != '0'")
@@ -40,6 +41,7 @@ final class HomeEditingUITests: XCTestCase {
         XCTAssertGreaterThan(right.minX, left.maxX)
         let gap = CGPoint(x: (left.maxX + right.minX) / 2, y: left.midY)
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: gap.x, dy: gap.y)).press(forDuration: 0.7)
+        print("BLANK TRACE", app.staticTexts["fixture.blankTrace"].label)
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         XCTAssertGreaterThan(removes.count, 0)
 

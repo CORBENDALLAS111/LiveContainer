@@ -138,6 +138,11 @@ struct LCHomeBlankPress: UIViewRepresentable {
     func makeUIView(context: Context) -> LCHomeBlankPressAnchor { LCHomeBlankPressAnchor(perform: perform) }
     func updateUIView(_ view: LCHomeBlankPressAnchor, context: Context) { view.perform = perform }
     static func dismantleUIView(_ view: LCHomeBlankPressAnchor, coordinator: ()) { view.detach() }
+    @available(iOS 16.0, *)
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: LCHomeBlankPressAnchor, context: Context) -> CGSize? {
+        guard let width = proposal.width, let height = proposal.height else { return nil }
+        return CGSize(width: width, height: height)
+    }
 }
 final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
     var perform: () -> Void
@@ -163,23 +168,37 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
         window?.addGestureRecognizer(press)
     }
     func detach() { observedWindow?.removeGestureRecognizer(press); observedWindow = nil }
+    private func trace(_ reason: String) {
+        #if DEBUG
+        guard UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") else { return }
+        let value = reason + " bounds=" + NSStringFromCGRect(bounds)
+        if UserDefaults.standard.string(forKey: "LCOSBlankTrace") != value {
+            UserDefaults.standard.set(value, forKey: "LCOSBlankTrace")
+        }
+        #endif
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        trace("layout window=\(window != nil)")
+    }
     @objc private func held(_ sender: UILongPressGestureRecognizer) {
+        trace("state=\(sender.state.rawValue)")
         if sender.state == .began { perform() }
     }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard let window = observedWindow, bounds.contains(touch.location(in: self)) else { return false }
+        guard let window = observedWindow, bounds.contains(touch.location(in: self)) else { trace("outside \(touch.location(in: self))"); return false }
         // Offscreen pages, clipped scroll content and presented sheets must not
         // turn editing on behind the currently visible interface.
         var ancestor = superview
         while let view = ancestor {
-            if view.isHidden || view.alpha < 0.01 { return false }
-            if view.clipsToBounds && !view.bounds.contains(touch.location(in: view)) { return false }
+            if view.isHidden || view.alpha < 0.01 { trace("hidden \(type(of: view))"); return false }
+            if view.clipsToBounds && !view.bounds.contains(touch.location(in: view)) { trace("clipped \(type(of: view))"); return false }
             ancestor = view.superview
         }
-        if window.rootViewController?.presentedViewController != nil { return false }
+        if window.rootViewController?.presentedViewController != nil { trace("presented"); return false }
         var hit = touch.view
         while let view = hit {
-            if view is UIControl || view is UITextView { return false }
+            if view is UIControl || view is UITextView { trace("control \(type(of: view))"); return false }
             hit = view.superview
         }
         let point = touch.location(in: window)
@@ -190,7 +209,9 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
                view.bounds.contains(view.convert(point, from: window)) { return true }
             return view.subviews.contains(where: containsIcon)
         }
-        return !containsIcon(window)
+        let accepted = !containsIcon(window)
+        trace(accepted ? "accepted" : "icon")
+        return accepted
     }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }

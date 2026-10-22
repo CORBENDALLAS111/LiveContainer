@@ -66,6 +66,7 @@ struct PreviewDelegate: LCAppBannerDelegate {}
 struct PreviewHost: App {
     @StateObject private var shared = SharedModel()
     @State private var jiggleCount = 0
+    @State private var blankTrace = ""
     init() {
         // SwiftUI AppStorage may not observe the launch-argument defaults domain.
         // Seed the fixture's persistent domain before constructing production views.
@@ -105,6 +106,8 @@ struct PreviewHost: App {
                 .environmentObject(shared)
                 .overlay(alignment: .bottomLeading) {
                     if UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") {
+                        VStack(alignment: .leading) {
+                        Text(blankTrace).font(.caption2).accessibilityIdentifier("fixture.blankTrace")
                         Text("\(jiggleCount)").font(.caption2)
                             .accessibilityIdentifier("fixture.jiggleCount")
                             .onReceive(Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()) { _ in
@@ -114,9 +117,11 @@ struct PreviewHost: App {
                                     } ?? 0
                                     return active + controller.children.reduce(0) { $0 + count($1) }
                                 }
+                                blankTrace = UserDefaults.standard.string(forKey: "LCOSBlankTrace") ?? "no anchor"
                                 jiggleCount = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                                     .flatMap(\.windows).compactMap(\.rootViewController).reduce(0) { $0 + count($1) }
                             }
+                        }
                     }
                 }
                 .task {
