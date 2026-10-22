@@ -130,8 +130,9 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
 }
 
 
-/// Observe the scroll view itself: its SwiftUI background cannot receive touches
-/// in grid gaps. Reject every icon cell before recognition, preserving context menus.
+/// SwiftUI may flatten a background outside its UIScrollView hierarchy. Observe
+/// its window, accepting only touches inside this page's visible rectangle and
+/// outside icon cells. This also covers the empty space added by minHeight.
 struct LCHomeBlankPress: UIViewRepresentable {
     var perform: () -> Void
     func makeUIView(context: Context) -> LCHomeBlankPressAnchor { LCHomeBlankPressAnchor(perform: perform) }
@@ -140,7 +141,7 @@ struct LCHomeBlankPress: UIViewRepresentable {
 }
 final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
     var perform: () -> Void
-    private weak var observedScroll: UIScrollView?
+    private weak var observedWindow: UIWindow?
     private lazy var press: UILongPressGestureRecognizer = {
         let value = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
         value.minimumPressDuration = 0.45
@@ -158,31 +159,38 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
         super.didMoveToWindow()
         detach()
         guard window != nil else { return }
-        var ancestor = superview
-        while let view = ancestor {
-            if let scroll = view as? UIScrollView {
-                observedScroll = scroll
-                scroll.addGestureRecognizer(press)
-                return
-            }
-            ancestor = view.superview
-        }
+        observedWindow = window
+        window?.addGestureRecognizer(press)
     }
-    func detach() { observedScroll?.removeGestureRecognizer(press); observedScroll = nil }
+    func detach() { observedWindow?.removeGestureRecognizer(press); observedWindow = nil }
     @objc private func held(_ sender: UILongPressGestureRecognizer) {
         if sender.state == .began { perform() }
     }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard let scroll = observedScroll else { return false }
-        let point = touch.location(in: scroll)
+        guard let window = observedWindow, bounds.contains(touch.location(in: self)) else { return false }
+        // Offscreen pages, clipped scroll content and presented sheets must not
+        // turn editing on behind the currently visible interface.
+        var ancestor = superview
+        while let view = ancestor {
+            if view.isHidden || view.alpha < 0.01 { return false }
+            if view.clipsToBounds && !view.bounds.contains(touch.location(in: view)) { return false }
+            ancestor = view.superview
+        }
+        if window.rootViewController?.presentedViewController != nil { return false }
+        var hit = touch.view
+        while let view = hit {
+            if view is UIControl || view is UITextView { return false }
+            hit = view.superview
+        }
+        let point = touch.location(in: window)
         // Include the cell's label and badge area, not only the image bounds.
         func containsIcon(_ view: UIView) -> Bool {
             guard !view.isHidden, view.alpha > 0.01 else { return false }
             if view.accessibilityIdentifier == "lifecontainer.homeIcon",
-               view.bounds.contains(view.convert(point, from: scroll)) { return true }
+               view.bounds.contains(view.convert(point, from: window)) { return true }
             return view.subviews.contains(where: containsIcon)
         }
-        return !containsIcon(scroll)
+        return !containsIcon(window)
     }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }

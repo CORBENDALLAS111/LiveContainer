@@ -36,6 +36,13 @@ if mini['state'] != 'Booted':
     subprocess.run(['xcrun', 'simctl', 'boot', mini['udid']], check=True, timeout=120)
 subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', mini['udid']], check=True, timeout=60)
 subprocess.run(['xcrun', 'simctl', 'bootstatus', mini['udid'], '-b'], check=True, timeout=300)
-subprocess.run(['xcodebuild', '-project', str(out / 'HomeEditing.xcodeproj'), '-scheme', 'HomeEditing',
+try:
+    subprocess.run(['xcodebuild', '-project', str(out / 'HomeEditing.xcodeproj'), '-scheme', 'HomeEditing',
                 '-destination', 'platform=iOS Simulator,id=' + mini['udid'], '-parallel-testing-enabled', 'NO',
                 '-resultBundlePath', str(out / 'MiniEditing.xcresult'), 'test'], check=True, timeout=900)
+
+finally:
+    result = out / 'MiniEditing.xcresult'
+    if result.exists():
+        subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result),
+                        '--output-path', str(out / 'attachments')], timeout=90)
