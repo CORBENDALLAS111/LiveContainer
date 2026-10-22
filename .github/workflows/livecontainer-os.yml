@@ -50,7 +50,7 @@ jobs:
       - name: Test package core
         run: |
           set -o pipefail
-          python3 -m unittest discover -s Tests -p test_merge_app_intents.py
+          python3 -m unittest discover -s Tests -p 'test_*.py'
           swift test 2>&1 | tee package-tests.log
       - name: Archive using upstream configuration
         run: |
@@ -58,6 +58,7 @@ jobs:
           xcodebuild archive -project LiveContainer.xcodeproj -scheme "$scheme" -archivePath "$archive_path" -sdk iphoneos -arch arm64 -configuration Release 2>&1 | tee xcodebuild.log
       - name: Build the separate built-in JIT helper from pinned source
         run: |
+          set -o pipefail
           brew install xcodegen
           python3 scripts/build_builtin_jit.py "$archive_path.xcarchive/Products/Applications/LiveContainer.app" 2>&1 | tee builtin-jit-build.log
       - name: Compile controlled device probe

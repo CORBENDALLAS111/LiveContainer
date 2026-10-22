@@ -13,8 +13,17 @@ assert subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], 
 subprocess.run(['xcodegen', 'generate'], cwd=source, check=True)
 subprocess.run(['xcodebuild', 'archive', '-project', str(source / 'StikJIT.xcodeproj'), '-scheme', 'StikJIT',
     '-destination', 'generic/platform=iOS', '-archivePath', str(work / 'StikJIT'),
-    'CODE_SIGNING_ALLOWED=NO', 'ARCHS=arm64', 'SKIP_INSTALL=NO', 'BUILD_LIBRARY_FOR_DISTRIBUTION=YES'], check=True)
+    'CODE_SIGNING_ALLOWED=NO', 'ARCHS=arm64', 'SKIP_INSTALL=NO', 'BUILD_LIBRARY_FOR_DISTRIBUTION=YES',
+    'GENERATE_INFOPLIST_FILE=YES'], check=True)
 framework = work / 'StikJIT.xcarchive/Products/Library/Frameworks/StikJIT.framework'
+# The pinned upstream project does not request plist generation. A successful
+# framework archive without it links correctly but cannot be installed on iOS.
+framework_info = plistlib.loads((framework / 'Info.plist').read_bytes())
+for key, expected in {'CFBundleIdentifier': 'com.stik.StikJIT', 'CFBundleExecutable': 'StikJIT',
+                      'CFBundlePackageType': 'FMWK', 'CFBundleShortVersionString': '1.9.0',
+                      'CFBundleVersion': '10', 'CFBundleSupportedPlatforms': ['iPhoneOS']}.items():
+    if framework_info.get(key) != expected:
+        raise ValueError(f'Invalid StikJIT framework metadata: {key}={framework_info.get(key)!r}')
 destination = app / 'Frameworks/StikJIT.framework'
 shutil.copytree(framework, destination, dirs_exist_ok=True)
 info = plistlib.loads((app / 'Info.plist').read_bytes())
