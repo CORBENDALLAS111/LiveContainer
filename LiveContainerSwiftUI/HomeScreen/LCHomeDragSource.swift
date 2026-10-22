@@ -135,8 +135,12 @@ final class LCHomeDragController: UIViewController, UIDragInteractionDelegate {
 /// outside icon cells. This also covers the empty space added by minHeight.
 struct LCHomeBlankPress: UIViewRepresentable {
     var perform: () -> Void
-    func makeUIView(context: Context) -> LCHomeBlankPressAnchor { LCHomeBlankPressAnchor(perform: perform) }
-    func updateUIView(_ view: LCHomeBlankPressAnchor, context: Context) { view.perform = perform }
+    var tapped: () -> Void
+    var enabled = true
+    func makeUIView(context: Context) -> LCHomeBlankPressAnchor { LCHomeBlankPressAnchor(perform: perform, tapped: tapped) }
+    func updateUIView(_ view: LCHomeBlankPressAnchor, context: Context) {
+        view.perform = perform; view.tapped = tapped; view.canEdit = enabled
+    }
     static func dismantleUIView(_ view: LCHomeBlankPressAnchor, coordinator: ()) { view.detach() }
     @available(iOS 16.0, *)
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: LCHomeBlankPressAnchor, context: Context) -> CGSize? {
@@ -146,6 +150,8 @@ struct LCHomeBlankPress: UIViewRepresentable {
 }
 final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
     var perform: () -> Void
+    var tapped: () -> Void
+    var canEdit = true
     private weak var observedWindow: UIWindow?
     private lazy var press: UILongPressGestureRecognizer = {
         let value = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
@@ -154,8 +160,14 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
         value.delegate = self
         return value
     }()
-    init(perform: @escaping () -> Void) {
-        self.perform = perform
+    private lazy var tap: UITapGestureRecognizer = {
+        let value = UITapGestureRecognizer(target: self, action: #selector(touched(_:)))
+        value.require(toFail: press)
+        value.delegate = self
+        return value
+    }()
+    init(perform: @escaping () -> Void, tapped: @escaping () -> Void) {
+        self.perform = perform; self.tapped = tapped
         super.init(frame: .zero)
         isUserInteractionEnabled = false
     }
@@ -166,8 +178,13 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
         guard window != nil else { return }
         observedWindow = window
         window?.addGestureRecognizer(press)
+        window?.addGestureRecognizer(tap)
     }
-    func detach() { observedWindow?.removeGestureRecognizer(press); observedWindow = nil }
+    func detach() {
+        observedWindow?.removeGestureRecognizer(tap)
+        observedWindow?.removeGestureRecognizer(press)
+        observedWindow = nil
+    }
     private func trace(_ reason: String) {
         #if DEBUG
         guard UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") else { return }
@@ -181,11 +198,15 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
         super.layoutSubviews()
         trace("layout window=\(window != nil)")
     }
+    @objc private func touched(_ sender: UITapGestureRecognizer) {
+        if sender.state == .ended { tapped() }
+    }
     @objc private func held(_ sender: UILongPressGestureRecognizer) {
         trace("state=\(sender.state.rawValue)")
         if sender.state == .began { perform() }
     }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard canEdit else { return false }
         guard let window = observedWindow, bounds.contains(touch.location(in: self)) else { trace("outside \(touch.location(in: self))"); return false }
         // Offscreen pages, clipped scroll content and presented sheets must not
         // turn editing on behind the currently visible interface.

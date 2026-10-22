@@ -14,6 +14,10 @@ Icon jiggle uses an isolated Core Animation layer. Folder placement/drop frames 
 
 Tweaks → Tweak Marketplace accepts HTTPS flat Sileo/APT repositories (Packages, Packages.gz, Packages.xz and Packages.bz2). Index expansion and download sizes are bounded. Paid/authenticated store downloads, full Debian dependency resolution, APT release-signature verification and distributions with only dists/ indexes are not implemented. Users must trust their chosen HTTPS repository; SHA-256 verifies consistency with its index, not publisher authenticity.
 
+Open **Tweaks → Tweak Marketplace**. The **Browse / Repositories** selector separates the catalog from source management. Add an HTTPS source using **+**, browse its packages, search by name or bundle package ID, and filter by category or repository. The rootless filter shows arm64 and architecture-independent candidates. Removing a repository removes its listings, not already installed tweaks.
+
+A package page shows its description, version, architecture, size and repository website. Choose a guest, download and inspect, then install the validated plan. **Installed Tweaks & Local DEB** opens per-app enable/disable and removal controls and the local DEB importer. Repository changes cancel stale refreshes; an old request cannot put deleted-source listings back into the catalog.
+
 Listings are not compatibility claims. Download and inspect against a selected, stopped guest before installation. The existing package inspector rejects system targets, maintainer actions, unsupported resources/dependencies, non-arm64 code and mismatched bundle filters. Rootless layout is supported but alone is insufficient. No package scripts are run.
 
 ## Built-in JIT

@@ -279,7 +279,6 @@ struct LCHomeScreenView: View {
     }
     private func blankArea(drop: @escaping () -> Void) -> some View {
         Color.clear.contentShape(Rectangle())
-            .onTapGesture { if editing { finishEditing() } }
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {}, exit: {}, finish: drop))
     }
     private func desktopPage(_ ids: [String], index: Int, columns: Int, side: CGFloat, perPage: Int, metrics: LCHomeMetrics) -> some View {
@@ -292,7 +291,7 @@ struct LCHomeScreenView: View {
                     blankArea { dropAtPageEnd(index, perPage: perPage, folder: nil) }
                         .frame(minHeight: 28, maxHeight: .infinity)
                 }.frame(minHeight: proxy.size.height, alignment: .top)
-                    .background(LCHomeBlankPress { startEditing() })
+                    .background(LCHomeBlankPress(perform: { startEditing() }, tapped: { if editing { finishEditing() } }, enabled: folderID == nil))
             }.modifier(LCHomeCleanScrollEdges())
         }
     }
@@ -450,7 +449,7 @@ struct LCHomeScreenView: View {
                         blankArea { dropAtPageEnd(index, perPage: capacity, folder: folder.id) }
                             .frame(minHeight: 24, maxHeight: .infinity)
                         }.frame(maxHeight: .infinity, alignment: .top)
-                            .background(LCHomeBlankPress { startEditing() }).tag(index)
+                            .background(LCHomeBlankPress(perform: { startEditing() }, tapped: { if editing { finishEditing() } })).tag(index)
                     }
                 }.tabViewStyle(.page(indexDisplayMode: .never))
                 .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: capacity, folder: folder.id) }
