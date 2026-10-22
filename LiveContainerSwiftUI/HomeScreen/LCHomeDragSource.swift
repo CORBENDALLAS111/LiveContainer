@@ -171,7 +171,7 @@ final class LCHomeBlankPressAnchor: UIView, UIGestureRecognizerDelegate {
     private func trace(_ reason: String) {
         #if DEBUG
         guard UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") else { return }
-        let value = reason + " bounds=" + NSStringFromCGRect(bounds)
+        let value = reason + " bounds=" + String(describing: bounds)
         if UserDefaults.standard.string(forKey: "LCOSBlankTrace") != value {
             UserDefaults.standard.set(value, forKey: "LCOSBlankTrace")
         }

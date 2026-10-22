@@ -74,7 +74,14 @@ struct LCTweakFolderView : View {
                     NavigationLink {
                         LCTweakMarketplace()
                     } label: {
-                        Label("life.market.title".loc, systemImage: "sparkles")
+                        HStack(spacing: 14) {
+                            Image(systemName: "shippingbox.fill").font(.title).foregroundStyle(.tint)
+                                .frame(width: 52, height: 52)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("life.market.title".loc).font(.headline)
+                                Text("life.market.subtitle".loc).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }.padding(.vertical, 8)
                     }
                     NavigationLink {
                         LCDebPackageView()

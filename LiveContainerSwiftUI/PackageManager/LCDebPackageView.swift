@@ -29,6 +29,29 @@ struct LCDebPackageView: View {
 
     var body: some View {
         List {
+            if let package = repositoryPackage {
+                Section {
+                    HStack(alignment: .top, spacing: 16) {
+                        Image(systemName: "puzzlepiece.extension.fill").font(.largeTitle).foregroundStyle(.tint)
+                            .frame(width: 72, height: 72)
+                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(package.name).font(.title2.bold())
+                            Text(package.version + " · " + package.architecture).font(.caption).foregroundStyle(.secondary)
+                            Text(package.summary).font(.subheadline)
+                        }
+                    }.padding(.vertical, 8)
+                    Text(package.identifier).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    HStack {
+                        Text(package.section.isEmpty ? "life.market.packages".loc : package.section)
+                        Spacer()
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(package.size), countStyle: .file))
+                    }.font(.subheadline).foregroundStyle(.secondary)
+                    if let url = URL(string: package.source), url.scheme == "https" {
+                        Link("life.market.openRepository".loc, destination: url)
+                    }
+                }
+            }
             Section {
                 Picker("life.deb.guest".loc, selection: $selectedApp) {
                     Text("life.deb.select".loc).tag("")
@@ -36,20 +59,17 @@ struct LCDebPackageView: View {
                         Text(app.displayName).tag(app.appInfo.relativeBundlePath ?? "")
                     }
                 }
-                Button { importing = true } label: { Label("life.deb.import".loc, systemImage: "square.and.arrow.down") }
-                    .disabled(app == nil || working)
                 if let package = repositoryPackage {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(package.name).font(.headline)
-                        Text(package.version + " · " + package.architecture).font(.caption).foregroundStyle(.secondary)
-                        Text(package.summary).font(.subheadline)
-                    }
                     Button { Task { await downloadAndInspect(package) } } label: {
                         Label("life.market.inspect".loc, systemImage: "arrow.down.circle.fill")
                     }.disabled(app == nil || working)
+                } else {
+                    Button { importing = true } label: { Label("life.deb.import".loc, systemImage: "square.and.arrow.down") }
+                        .disabled(app == nil || working)
                 }
+                if apps.isEmpty { Text("life.market.noGuest".loc).font(.footnote).foregroundStyle(.secondary) }
             } footer: {
-                Text("Private, unlocked arm64 guests are supported in this first version. Quit the guest before changing its tweaks. Existing global tweaks are managed separately.")
+                Text("life.market.guestHelp".loc)
             }
             if let plan {
                 Section("life.deb.inspection".loc) {
@@ -83,7 +103,7 @@ struct LCDebPackageView: View {
                 }
             }
         }
-        .navigationTitle("life.deb.title".loc)
+        .navigationTitle(repositoryPackage?.name ?? "life.deb.title".loc)
         .disabled(working)
         .task(id: selectedApp) { await selectGuest() }
         .onForeground { Task { do { try await refresh() } catch { report(error) } } }
