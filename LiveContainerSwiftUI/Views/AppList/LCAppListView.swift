@@ -271,6 +271,25 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 Task { await installFromUrl(urlStr: installUrl.absoluteString) }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarImportIPA)) { _ in
+            guard sharedModel.selectedTab == .apps, homeScreenEnabled,
+                  sharedModel.multiLCStatus != 2, !installprogressVisible else { return }
+            choosingIPA = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarImportURL)) { _ in
+            guard sharedModel.selectedTab == .apps, homeScreenEnabled,
+                  sharedModel.multiLCStatus != 2, !installprogressVisible else { return }
+            Task { await startInstallFromUrl() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarOpenSideStore)) { _ in
+            guard sharedModel.selectedTab == .apps, homeScreenEnabled,
+                  UserDefaults.sideStoreExist() else { return }
+            LCUtils.openSideStore(delegate: self)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarOpenLink)) { _ in
+            guard sharedModel.selectedTab == .apps, homeScreenEnabled else { return }
+            Task { await onOpenWebViewTapped() }
+        }
         .apply { content in
             if homeScreenEnabled { content }
             else { content.searchable(text: $searchContext.query) }
