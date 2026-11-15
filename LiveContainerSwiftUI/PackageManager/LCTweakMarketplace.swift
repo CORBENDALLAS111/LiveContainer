@@ -45,44 +45,18 @@ struct LCTweakMarketplace: View {
         }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
-    // Keep the iPad mini portrait screen compact, but use the extra width
-    // in landscape for a persistent repository/filter pane and package catalog.
-    // Window width is intentionally used instead of size classes so Stage
-    // Manager, Split View and external displays reflow as the window changes.
-    private var splitMarketplace: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
-    }
-
+    // Browse and repository management stay in one native List. Multiple
+    // side-by-side Lists under one NavigationStack competed for the title
+    // safe-area insets on iPad mini and made content jump during rotation.
+    // One list preserves search, swipe-delete and pull-to-refresh everywhere.
     var body: some View {
-        GeometryReader { geometry in
-            if splitMarketplace && geometry.size.width >= 900 {
-                HStack(spacing: 0) {
-                    List {
-                        marketplaceHeader
-                        if showSources { repositorySection } else { catalogFilters }
-                    }
-                    .listStyle(.insetGrouped)
-                    .frame(width: min(420, geometry.size.width * 0.38))
-                    .refreshable { await refresh() }
-
-                    Divider()
-
-                    List {
-                        marketplaceResults
-                    }
-                    .listStyle(.insetGrouped)
-                    .refreshable { await refresh() }
-                }
-            } else {
-                List {
-                    marketplaceHeader
-                    if showSources { repositorySection } else { catalogFilters }
-                    marketplaceResults
-                }
-                .listStyle(.insetGrouped)
-                .refreshable { await refresh() }
-            }
+        List {
+            marketplaceHeader
+            if showSources { repositorySection } else { catalogFilters }
+            marketplaceResults
         }
+        .listStyle(.insetGrouped)
+        .refreshable { await refresh() }
         .navigationTitle("life.market.title".loc)
         .searchable(text: $query, prompt: "life.market.search".loc)
         .task(id: sourceJSON) { await refresh() }
