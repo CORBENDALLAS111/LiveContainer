@@ -248,11 +248,11 @@ struct LCTweakFolderView : View {
     private var wideTweakFiles: some View {
         VStack(alignment: .leading, spacing: 8) {
             VStack(spacing: 0) {
-                ForEach(Array(tweakItems.enumerated()), id: \.element) { index, item in
+                ForEach(tweakItems.indices, id: \.self) { index in
                     if index > 0 {
                         Divider().padding(.leading, 58).padding(.trailing, 18)
                     }
-                    tweakRow(item)
+                    tweakRow(tweakItems[index])
                         .frame(minHeight: 58)
                         .padding(.horizontal, 18)
                         .contentShape(Rectangle())
