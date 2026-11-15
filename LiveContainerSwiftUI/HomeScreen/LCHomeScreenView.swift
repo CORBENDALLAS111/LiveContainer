@@ -74,7 +74,11 @@ struct LCHomeScreenView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let metrics = LCHomeMetrics(width: geometry.size.width, height: geometry.size.height - (searching ? 206 : 162),
+            // The iPadOS top tab row owns the install/SideStore/menu controls.
+            // Do not reserve their former second header row in the grid geometry.
+            let reservedHeight: CGFloat = usesTopTabActions
+                ? (searching ? 154 : 110) : (searching ? 206 : 162)
+            let metrics = LCHomeMetrics(width: geometry.size.width, height: max(0, geometry.size.height - reservedHeight),
                 tablet: UIDevice.current.userInterfaceIdiom == .pad,
                 mini: LCHomeMetrics.isMini(model: Self.deviceModel, shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)),
                 accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
@@ -126,6 +130,19 @@ struct LCHomeScreenView: View {
             .onChange(of: count) { page = min(page, $0 - 1) }
             .onChange(of: query) { _ in page = 0 }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEdit)) { _ in
+            guard gridEnabled else { return }
+            startEditing()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarDone)) { _ in
+            if editing { finishEditing() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarReset)) { _ in
+            resetConfirmation = true
+        }
+        .onChange(of: editing) { isEditing in
+            NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: isEditing)
+        }
         .confirmationDialog("lcos.home.reset".loc, isPresented: $resetConfirmation) {
             Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); page = 0; folderID = nil; folderProgress = 0 }
         }
@@ -140,6 +157,7 @@ struct LCHomeScreenView: View {
         }
         .onAppear {
             refreshLayout()
+            NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: editing)
             #if DEBUG
             // Screenshot fixtures are explicitly gated and compiled out of distribution builds.
             if UserDefaults.standard.bool(forKey: "LCOSPreviewEnabled") {
@@ -191,42 +209,60 @@ struct LCHomeScreenView: View {
         }
     }
 
+    private var usesTopTabActions: Bool {
+        if #available(iOS 26.0, *) {
+            return UIDevice.current.userInterfaceIdiom == .pad
+        }
+        return false
+    }
+
     private var header: some View {
         LCGlassGroup {
             VStack(spacing: 8) {
-            Text("lc.appList.myApps".loc).font(.title2.weight(.bold)).frame(maxWidth: .infinity).accessibilityAddTraits(.isHeader)
-            HStack(spacing: 12) {
-                Spacer(minLength: 0)
-                if editing {
-                    Button("lcos.home.done".loc) { finishEditing() }
-                        .accessibilityIdentifier("lifecontainer.editDone")
-                        .font(.body.weight(.semibold)).padding(.horizontal, 16).frame(height: 44)
-                        .lcGlass(in: Capsule(), interactive: true)
-                } else {
-                    if shared.multiLCStatus != 2 {
-                        Menu {
-                            Button("lc.appList.installFromIpa".loc, action: importIPA)
-                            Button("lc.appList.installFromUrl".loc, action: importURL)
-                        } label: { chromeIcon("plus") }.lcFixedInstallOrder().disabled(importing)
-                        .accessibilityLabel("lc.appList.installFromIpa".loc)
-                    }
-                    if let openSideStore {
-                        Button(action: openSideStore) {
-                            IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
-                                .frame(width: 22, height: 22).frame(width: 44, height: 44)
-                                .lcGlass(in: Circle(), interactive: true)
-                        }.accessibilityLabel("SideStore")
-                    }
-                    Menu {
-                        Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
-                        Button("lcos.home.edit".loc) { startEditing() }
-                        Button("lcos.home.list".loc) { gridEnabled = false }
-                        Button("lc.appList.openLink".loc, action: openLink)
-                        if let openSideStore { Button("SideStore", action: openSideStore) }
-                        Button("lcos.home.reset".loc) { resetConfirmation = true }
-                    } label: { chromeIcon("ellipsis") }.accessibilityLabel("lcos.home.options".loc)
+                Text("lc.appList.myApps".loc)
+                    .font(.title2.weight(.bold))
+                    .frame(maxWidth: .infinity)
+                    .accessibilityAddTraits(.isHeader)
+                if !usesTopTabActions {
+                    HStack(spacing: 12) {
+                        Spacer(minLength: 0)
+                        if editing {
+                            Button("lcos.home.done".loc) { finishEditing() }
+                                .accessibilityIdentifier("lifecontainer.editDone")
+                                .font(.body.weight(.semibold))
+                                .padding(.horizontal, 16)
+                                .frame(height: 44)
+                                .lcGlass(in: Capsule(), interactive: true)
+                        } else {
+                            if shared.multiLCStatus != 2 {
+                                Menu {
+                                    Button("lc.appList.installFromIpa".loc, action: importIPA)
+                                    Button("lc.appList.installFromUrl".loc, action: importURL)
+                                } label: { chromeIcon("plus") }
+                                    .lcFixedInstallOrder()
+                                    .disabled(importing)
+                                    .accessibilityLabel("lc.appList.installFromIpa".loc)
+                            }
+                            if let openSideStore {
+                                Button(action: openSideStore) {
+                                    IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
+                                        .frame(width: 22, height: 22)
+                                        .frame(width: 44, height: 44)
+                                        .lcGlass(in: Circle(), interactive: true)
+                                }.accessibilityLabel("SideStore")
+                            }
+                            Menu {
+                                Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
+                                Button("lcos.home.edit".loc) { startEditing() }
+                                Button("lcos.home.list".loc) { gridEnabled = false }
+                                Button("lc.appList.openLink".loc, action: openLink)
+                                if let openSideStore { Button("SideStore", action: openSideStore) }
+                                Button("lcos.home.reset".loc) { resetConfirmation = true }
+                            } label: { chromeIcon("ellipsis") }
+                                .accessibilityLabel("lcos.home.options".loc)
+                        }
+                    }.buttonStyle(.plain)
                 }
-            }.buttonStyle(.plain)
             }
         }.padding(.horizontal, 20).padding(.top, 12)
     }

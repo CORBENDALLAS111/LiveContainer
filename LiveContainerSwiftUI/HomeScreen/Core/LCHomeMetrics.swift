@@ -11,7 +11,8 @@ struct LCHomeMetrics: Equatable {
 
     static func isMini(model: String, shortSide: Double) -> Bool {
         let olderMinis: Set<String> = ["iPad2,5", "iPad2,6", "iPad2,7", "iPad4,4", "iPad4,5", "iPad4,6",
-            "iPad4,7", "iPad4,8", "iPad4,9", "iPad5,1", "iPad5,2", "iPad11,1", "iPad11,2"]
+            "iPad4,7", "iPad4,8", "iPad4,9", "iPad5,1", "iPad5,2", "iPad11,1", "iPad11,2",
+            "iPad14,1", "iPad14,2", "iPad16,1", "iPad16,2"]
         return olderMinis.contains(model) || shortSide <= 744
     }
 
