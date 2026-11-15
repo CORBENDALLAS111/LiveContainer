@@ -276,14 +276,12 @@ struct LCTweakFolderView : View {
                 HStack {
                     Group {
                         if tweakItem.isFolder && !tweakItem.isFramework {
-                            // hidden link so the row navigates without the toggle triggering it
-                            ZStack {
-                                NavigationLink {
-                                    LCTweakFolderView(baseUrl: tweakItem.fileUrl, isRoot: false)
-                                } label: {
-                                    EmptyView()
-                                }
-                                .opacity(0)
+                            // An explicit link works both in native Lists and
+                            // in the wide ScrollView card. The separate Toggle
+                            // remains independently tappable.
+                            NavigationLink {
+                                LCTweakFolderView(baseUrl: tweakItem.fileUrl, isRoot: false)
+                            } label: {
                                 HStack {
                                     Label(tweakItem.displayName, systemImage: "folder.fill")
                                     Spacer()
@@ -291,7 +289,9 @@ struct LCTweakFolderView : View {
                                         .font(.footnote.weight(.semibold))
                                         .foregroundColor(.secondary)
                                 }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         } else if tweakItem.isFramework {
                             Label(tweakItem.displayName, systemImage: "shippingbox.fill")
                             Spacer()
