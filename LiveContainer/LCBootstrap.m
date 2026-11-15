@@ -250,7 +250,6 @@ static void *getAppEntryPoint(void *handle) {
     return (void *)header + entryoff;
 }
 
-__attribute__((visibility("default"), used))
 NSString *LCRunGuestExtension(NSDictionary *request, int argc, char *argv[], char *envp[], char *apple[]) {
     lcMainBundle = NSBundle.mainBundle;
     lcUserDefaults = NSUserDefaults.standardUserDefaults;
