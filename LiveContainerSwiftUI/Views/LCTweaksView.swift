@@ -67,97 +67,27 @@ struct LCTweakFolderView : View {
         }
     }
 
+    // On wide iPad windows, keep discovery and the global tweak files
+    // side-by-side. Portrait and compact windows retain the native grouped list.
+    // Geometry rather than interface orientation supports Stage Manager resizing.
     var body: some View {
-        List {
-            if isRoot {
-                Section {
-                    NavigationLink {
-                        LCTweakMarketplace()
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "shippingbox.fill").font(.title).foregroundStyle(.tint)
-                                .frame(width: 52, height: 52)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("life.market.title".loc).font(.headline)
-                                Text("life.market.subtitle".loc).font(.caption).foregroundStyle(.secondary)
-                            }
-                        }.padding(.vertical, 8)
-                    }
-                    NavigationLink {
-                        LCDebPackageView()
-                    } label: {
-                        Label("life.deb.title".loc, systemImage: "shippingbox")
-                    }
+        GeometryReader { geometry in
+            if isRoot && UIDevice.current.userInterfaceIdiom == .pad &&
+                geometry.size.width >= 900 {
+                HStack(spacing: 0) {
+                    List { marketplaceLinks }
+                        .listStyle(.insetGrouped)
+                        .frame(width: min(420, geometry.size.width * 0.38))
+                    Divider()
+                    List { tweakFiles }
+                        .listStyle(.insetGrouped)
                 }
-            }
-            Section {
-                ForEach(tweakItems, id:\.self) { tweakItem in
-                    HStack {
-                        Group {
-                            if tweakItem.isFolder && !tweakItem.isFramework {
-                                // hidden link so the row navigates without the toggle triggering it
-                                ZStack {
-                                    NavigationLink {
-                                        LCTweakFolderView(baseUrl: tweakItem.fileUrl, isRoot: false)
-                                    } label: {
-                                        EmptyView()
-                                    }
-                                    .opacity(0)
-                                    HStack {
-                                        Label(tweakItem.displayName, systemImage: "folder.fill")
-                                        Spacer()
-                                        Image(systemName: "chevron.forward")
-                                            .font(.footnote.weight(.semibold))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            } else if tweakItem.isFramework {
-                                Label(tweakItem.displayName, systemImage: "shippingbox.fill")
-                                Spacer()
-                            } else if tweakItem.isTweak {
-                                Label(tweakItem.displayName, systemImage: "building.columns.fill")
-                                Spacer()
-                            } else {
-                                Label(tweakItem.displayName, systemImage: "document.fill")
-                                Spacer()
-                            }
-                        }
-                        .opacity(tweakItem.isEnabled ? 1 : 0.4)
-                        if tweakItem.displayName != "TweakLoader.dylib" {
-                            Toggle("", isOn: Binding(
-                                get: { tweakItem.isEnabled },
-                                set: { setTweakEnabled(tweakItem: tweakItem, enabled: $0) }
-                            ))
-                            .labelsHidden()
-                        }
-                    }
-                    .contextMenu {
-                        Button {
-                            Task { await renameTweakItem(tweakItem: tweakItem)}
-                        } label: {
-                            Label("lc.common.rename".loc, systemImage: "pencil")
-                        }
-
-                        Button(role: .destructive) {
-                            deleteTweakItem(tweakItem: tweakItem)
-                        } label: {
-                            Label("lc.common.delete".loc, systemImage: "trash")
-                        }
-                    }
-
-                }.onDelete { indexSet in
-                    deleteTweakItem(indexSet: indexSet)
+            } else {
+                List {
+                    if isRoot { marketplaceLinks }
+                    tweakFiles
                 }
-            } footer: {
-                if isRoot {
-                    Text("lc.tweakView.globalFolderDesc".loc)
-                        .foregroundStyle(.gray)
-                        .font(.system(size: 12))
-                } else {
-                    Text("lc.tweakView.appFolderDesc".loc)
-                        .foregroundStyle(.gray)
-                        .font(.system(size: 12))
-                }
+                .listStyle(.insetGrouped)
             }
         }
         .navigationTitle(isRoot ? "lc.tabView.tweaks".loc : baseUrl.lastPathComponent)
@@ -239,6 +169,102 @@ struct LCTweakFolderView : View {
         })
     }
     
+    @ViewBuilder
+    private var marketplaceLinks: some View {
+        Section {
+            NavigationLink {
+                LCTweakMarketplace()
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "shippingbox.fill").font(.title).foregroundStyle(.tint)
+                        .frame(width: 52, height: 52)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("life.market.title".loc).font(.headline)
+                        Text("life.market.subtitle".loc).font(.caption).foregroundStyle(.secondary)
+                    }
+                }.padding(.vertical, 8)
+            }
+            NavigationLink {
+                LCDebPackageView()
+            } label: {
+                Label("life.deb.title".loc, systemImage: "shippingbox")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var tweakFiles: some View {
+        Section {
+            ForEach(tweakItems, id:\.self) { tweakItem in
+                HStack {
+                    Group {
+                        if tweakItem.isFolder && !tweakItem.isFramework {
+                            // hidden link so the row navigates without the toggle triggering it
+                            ZStack {
+                                NavigationLink {
+                                    LCTweakFolderView(baseUrl: tweakItem.fileUrl, isRoot: false)
+                                } label: {
+                                    EmptyView()
+                                }
+                                .opacity(0)
+                                HStack {
+                                    Label(tweakItem.displayName, systemImage: "folder.fill")
+                                    Spacer()
+                                    Image(systemName: "chevron.forward")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        } else if tweakItem.isFramework {
+                            Label(tweakItem.displayName, systemImage: "shippingbox.fill")
+                            Spacer()
+                        } else if tweakItem.isTweak {
+                            Label(tweakItem.displayName, systemImage: "building.columns.fill")
+                            Spacer()
+                        } else {
+                            Label(tweakItem.displayName, systemImage: "document.fill")
+                            Spacer()
+                        }
+                    }
+                    .opacity(tweakItem.isEnabled ? 1 : 0.4)
+                    if tweakItem.displayName != "TweakLoader.dylib" {
+                        Toggle("", isOn: Binding(
+                            get: { tweakItem.isEnabled },
+                            set: { setTweakEnabled(tweakItem: tweakItem, enabled: $0) }
+                        ))
+                        .labelsHidden()
+                    }
+                }
+                .contextMenu {
+                    Button {
+                        Task { await renameTweakItem(tweakItem: tweakItem)}
+                    } label: {
+                        Label("lc.common.rename".loc, systemImage: "pencil")
+                    }
+        
+                    Button(role: .destructive) {
+                        deleteTweakItem(tweakItem: tweakItem)
+                    } label: {
+                        Label("lc.common.delete".loc, systemImage: "trash")
+                    }
+                }
+        
+            }.onDelete { indexSet in
+                deleteTweakItem(indexSet: indexSet)
+            }
+        } footer: {
+            if isRoot {
+                Text("lc.tweakView.globalFolderDesc".loc)
+                    .foregroundStyle(.gray)
+                    .font(.system(size: 12))
+            } else {
+                Text("lc.tweakView.appFolderDesc".loc)
+                    .foregroundStyle(.gray)
+                    .font(.system(size: 12))
+            }
+        }
+    }
+
     func setTweakEnabled(tweakItem: LCTweakItem, enabled: Bool) {
         if tweakItem.isEnabled == enabled {
             return
