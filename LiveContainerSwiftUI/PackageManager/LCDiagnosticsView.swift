@@ -14,6 +14,7 @@ struct LCDiagnosticsView: View {
     @State private var confirmClear = false
     @State private var failure: String?
     @State private var sharing = false
+    @State private var fetching = false
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var visible: [SigningDiagnostics.Entry] {
@@ -122,13 +123,11 @@ struct LCDiagnosticsView: View {
                     .accessibilityLabel("lcos.home.options".loc)
             }
         }
-        .task { entries = SigningDiagnostics.entries() }
+        .task { await reloadEntries() }
         .onReceive(timer) { _ in
-            // Pausing auto-scroll does not pause diagnostic collection.
-            let latest = SigningDiagnostics.entries()
-            if latest.last?.id != entries.last?.id || latest.count != entries.count {
-                entries = latest
-            }
+            // Decoding log files off the main actor keeps 60/120Hz scrolling
+            // responsive even when SideStore writes many events.
+            Task { await reloadEntries() }
         }
         .sheet(isPresented: $sharing) { ActivityViewController(activityItems: [export]) }
         .sheet(isPresented: $showInfo) {
@@ -157,6 +156,20 @@ struct LCDiagnosticsView: View {
             get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("lc.common.ok".loc) { failure = nil }
         } message: { Text(failure ?? "") }
+    }
+
+    @MainActor
+    private func reloadEntries() async {
+        guard !fetching else { return }
+        fetching = true
+        defer { fetching = false }
+        let latest = await Task.detached(priority: .utility) {
+            SigningDiagnostics.entries()
+        }.value
+        guard !Task.isCancelled else { return }
+        if latest.last?.id != entries.last?.id || latest.count != entries.count {
+            entries = latest
+        }
     }
 
     private func logRow(_ entry: SigningDiagnostics.Entry) -> some View {
