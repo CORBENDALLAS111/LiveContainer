@@ -737,7 +737,7 @@ struct LCSettingsView: View {
 private struct LCHomeAppearanceSettingsView: View {
     @AppStorage("LCOSHomeIconScale", store: LCUtils.appGroupUserDefault) private var iconScale = 1.0
     @AppStorage("LCOSHomeShowLabels", store: LCUtils.appGroupUserDefault) private var showLabels = true
-    @AppStorage("LCOSHomeShowPageDots", store: LCUtils.appGroupUserDefault) private var showPageDots = true
+    @AppStorage("LCOSHomeScrollIndicator", store: LCUtils.appGroupUserDefault) private var showScrollIndicator = true
     @AppStorage("LCOSHomeEdgeFade", store: LCUtils.appGroupUserDefault) private var edgeFade = true
     @AppStorage("LCOSHomeMotionMode", store: LCUtils.appGroupUserDefault) private var motionMode = "standard"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -767,10 +767,14 @@ private struct LCHomeAppearanceSettingsView: View {
                         .accessibilityLabel("lcos.home.iconSize".loc)
                 }
                 Toggle("lcos.home.labels".loc, isOn: $showLabels)
-                Toggle("lcos.home.pageDots".loc, isOn: $showPageDots)
-                Toggle("lcos.home.edgeFade".loc, isOn: $edgeFade)
+                Toggle("lcos.home.scrollIndicator".loc, isOn: $showScrollIndicator)
+                if #available(iOS 26.0, *) {
+                    Toggle("lcos.home.nativeScrollEdge".loc, isOn: $edgeFade)
+                }
             } header: {
                 Text("lcos.home.appearance".loc)
+            } footer: {
+                Text("lcos.home.nativeScrollEdgeDescription".loc)
             }
             Section {
                 Picker("lcos.home.motion".loc, selection: $motionMode) {
@@ -791,7 +795,7 @@ private struct LCHomeAppearanceSettingsView: View {
                 Button("lcos.home.restoreDefaults".loc) {
                     iconScale = 1.0
                     showLabels = true
-                    showPageDots = true
+                    showScrollIndicator = true
                     edgeFade = true
                     motionMode = "standard"
                 }
