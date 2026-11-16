@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "lcos.logs.vpnHint" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"SideStore VPN connection was interrupted. Check the VPN tunnel, reconnect and retry the refresh."}},"ru":{"stringUnit":{"state":"translated","value":"Соединение SideStore VPN прервано. Проверьте VPN, переподключитесь и повторите обновление."}}}},
     "lcos.logs.all" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"All"}},"ru":{"stringUnit":{"state":"translated","value":"Все"}}}},
     "lcos.logs.events" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Events"}},"ru":{"stringUnit":{"state":"translated","value":"События"}}}},
     "lcos.logs.about" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"About diagnostics"}},"ru":{"stringUnit":{"state":"translated","value":"О логах"}}}},
