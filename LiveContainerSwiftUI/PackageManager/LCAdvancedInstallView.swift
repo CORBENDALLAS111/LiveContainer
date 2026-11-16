@@ -177,7 +177,7 @@ struct LCAdvancedInstallView: View {
                 TextField("Bundle ID", text: $identifier)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
-                    .fontDesign(.monospaced)
+                    .font(.system(.body, design: .monospaced))
             }
             Button { importingIcon = true } label: {
                 HStack {
