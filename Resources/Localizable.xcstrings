@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "lcos.home.scrollIndicator" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Show scroll indicator"}},"ru":{"stringUnit":{"state":"translated","value":"Показывать индикатор прокрутки"}}}},
+    "lcos.home.nativeScrollEdge" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"System scroll blur"}},"ru":{"stringUnit":{"state":"translated","value":"Системное размытие при прокрутке"}}}},
+    "lcos.home.nativeScrollEdgeDescription" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Uses iOS's native scroll-edge rendering where supported. No artificial material overlays. The app grid scrolls continuously without pages."}},"ru":{"stringUnit":{"state":"translated","value":"Используется системный эффект iOS, если поддерживается. Без искусственных полупрозрачных полос. Сетка приложений прокручивается непрерывно без страниц."}}}},
     "lcos.logs.vpnHint" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"SideStore VPN connection was interrupted. Check the VPN tunnel, reconnect and retry the refresh."}},"ru":{"stringUnit":{"state":"translated","value":"Соединение SideStore VPN прервано. Проверьте VPN, переподключитесь и повторите обновление."}}}},
     "lcos.logs.all" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"All"}},"ru":{"stringUnit":{"state":"translated","value":"Все"}}}},
     "lcos.logs.events" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Events"}},"ru":{"stringUnit":{"state":"translated","value":"События"}}}},
