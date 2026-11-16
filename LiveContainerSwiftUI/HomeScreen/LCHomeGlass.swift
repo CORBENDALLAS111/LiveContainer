@@ -21,6 +21,16 @@ extension View {
     }
 }
 
+/// Optional gradient veil. It softens the scrolling edge without clipping
+/// icon artwork or letting overlay materials intercept touches.
+struct LCHomeOptionalVeil: ViewModifier {
+    let enabled: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled { content.lcHomeScrollVeil() }
+        else { content }
+    }
+}
+
 private struct LCHomeScrollVeil: ViewModifier {
     @State private var scrolled = false
     private var visible: Bool {
