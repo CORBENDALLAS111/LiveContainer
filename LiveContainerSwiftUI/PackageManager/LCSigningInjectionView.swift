@@ -190,7 +190,7 @@ struct LCSigningInjectionView: View {
             try preset.write(to: root)
             verifiedFiles = [:]
             reload()
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 
     private func verifyLibraries(_ preset: SigningInjectionPreset) {
