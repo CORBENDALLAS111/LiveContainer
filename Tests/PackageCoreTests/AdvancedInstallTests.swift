@@ -28,6 +28,44 @@ final class AdvancedInstallTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleIdentifier"] as? String, "org.example.clone.widget")
         XCTAssertEqual(try Data(contentsOf: app.url.appendingPathComponent("Test")), Data([1,2,3]))
     }
+    func testFileSharingActuallyUpdatesAppMetadata() throws {
+        let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        XCTAssertFalse(app.fileSharingEnabled)
+        XCTAssertEqual(app.extensionCount, 1)
+        try SigningAdvanced.customize(app, name: app.name, identifier: app.identifier, iconPNG: nil,
+                                      options: .init(enableFileSharing: true))
+        let updated = try SigningAdvanced.inspect(root)
+        XCTAssertTrue(updated.fileSharingEnabled)
+        XCTAssertEqual(updated.extensionCount, 1)
+        let plist = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: Data(contentsOf: updated.url.appendingPathComponent("Info.plist")),
+            format: nil) as? [String: Any])
+        XCTAssertEqual(plist["UIFileSharingEnabled"] as? Bool, true)
+        XCTAssertEqual(plist["LSSupportsOpeningDocumentsInPlace"] as? Bool, true)
+    }
+
+    func testRemoveAppExtensionsRetainsExecutableAndAppIdentity() throws {
+        let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        let executable = try Data(contentsOf: app.url.appendingPathComponent("Test"))
+        try SigningAdvanced.customize(app, name: "Clone", identifier: "org.example.clone", iconPNG: nil,
+                                      options: .init(enableFileSharing: false, removeAppExtensions: true))
+        let updated = try SigningAdvanced.inspect(root)
+        XCTAssertEqual(updated.identifier, "org.example.clone")
+        XCTAssertEqual(updated.name, "Clone")
+        XCTAssertEqual(updated.extensionCount, 0)
+        XCTAssertFalse(updated.fileSharingEnabled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: app.url.appendingPathComponent("PlugIns/Widget.appex").path))
+        XCTAssertEqual(try Data(contentsOf: app.url.appendingPathComponent("Test")), executable)
+    }
+
+    func testDefaultsKeepAppExtensionsAndOriginalFileSharing() throws {
+        let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
+        try SigningAdvanced.customize(app, name: "Normal", identifier: app.identifier, iconPNG: nil)
+        let updated = try SigningAdvanced.inspect(root)
+        XCTAssertEqual(updated.extensionCount, 1)
+        XCTAssertFalse(updated.fileSharingEnabled)
+    }
+
     func testStreamingIPARoundTripAndLinkRejection() throws {
         let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let output = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".ipa")
