@@ -185,6 +185,18 @@ struct LCDiagnosticsView: View {
                 }
                 Text(entry.process)
                     .font(.caption).foregroundStyle(.secondary)
+                if isError && !isExpanded && !entry.detail.isEmpty {
+                    Text(entry.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if isExpanded && entry.detail.contains("InvalidVPN") {
+                    Label("lcos.logs.vpnHint".loc, systemImage: "wifi.exclamationmark")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if isExpanded && !entry.detail.isEmpty {
                     Text(entry.detail)
                         .font(.system(.footnote, design: .monospaced))
