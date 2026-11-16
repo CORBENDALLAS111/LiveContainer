@@ -16,7 +16,8 @@ struct LCAdvancedInstallView: View {
     @State private var identifier = ""
     @State private var ipaFilename = ""
     @State private var enableFileSharing = false
-    @State private var removeAppExtensions = false
+    @State private var excludedExtensions: Set<String> = []
+    @State private var managingExtensions = false
     @State private var icon: Data?
     @State private var failure: String?
     @State private var injecting = false
@@ -81,6 +82,9 @@ struct LCAdvancedInstallView: View {
                 }
             } catch { failure = error.localizedDescription }
         }
+        .sheet(isPresented: $managingExtensions) {
+            if let app { extensionManager(app) }
+        }
         .sheet(isPresented: $injecting) {
             NavigationView { LCSigningInjectionView(target: identifier, appName: name) { _ in injecting = false } }.navigationViewStyle(.stack)
         }
@@ -137,20 +141,22 @@ struct LCAdvancedInstallView: View {
                 Label("lcos.install.fileSharing".installLoc, systemImage: "folder")
             }
             if app.extensionCount > 0 {
-                Toggle(isOn: $removeAppExtensions) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label("lcos.install.removeExtensions".installLoc,
+                Button { managingExtensions = true } label: {
+                    HStack(spacing: 12) {
+                        Label("lcos.install.manageExtensions".installLoc,
                               systemImage: "puzzlepiece.extension")
-                        Text(String(format: "lcos.install.extensionsCount".installLoc, app.extensionCount))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(app.extensionCount - excludedExtensions.count)/\(app.extensionCount)")
+                            .foregroundStyle(.secondary).monospacedDigit()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote).foregroundStyle(.tertiary)
                     }
+                    .contentShape(Rectangle())
                 }
-                if removeAppExtensions {
+                if !excludedExtensions.isEmpty {
                     Label("lcos.install.extensionWarning".installLoc,
                           systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -160,6 +166,55 @@ struct LCAdvancedInstallView: View {
             Text("lcos.install.fileSharingHelp".installLoc)
         }
         .disabled(working)
+    }
+
+    /// Retains every extension by default. Only selected omissions are removed
+    /// from the disposable staging IPA before the SideStore signing flow begins.
+    private func extensionManager(_ app: SigningAdvanced.App) -> some View {
+        NavigationView {
+            Form {
+                Section {
+                    ForEach(app.extensions) { item in
+                        Toggle(isOn: Binding(
+                            get: { !excludedExtensions.contains(item.id) },
+                            set: { retained in
+                                if retained { excludedExtensions.remove(item.id) }
+                                else { excludedExtensions.insert(item.id) }
+                            }
+                        )) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(item.title).font(.body.weight(.medium))
+                                Text(item.bundleIdentifier)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                if !item.extensionPoint.isEmpty {
+                                    Text(item.extensionPoint)
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        .disabled(working)
+                    }
+                } header: {
+                    Text("lcos.install.manageExtensions".installLoc)
+                } footer: {
+                    Text("lcos.install.extensionWarning".installLoc)
+                }
+                Section {
+                    Button("lcos.install.keepAllExtensions".installLoc) {
+                        excludedExtensions.removeAll()
+                    }
+                    .disabled(excludedExtensions.isEmpty || working)
+                }
+            }
+            .navigationTitle("lcos.install.manageExtensions".installLoc)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("lcos.home.done".installLoc) { managingExtensions = false }
+                }
+            }
+        }.navigationViewStyle(.stack)
     }
 
     private var identitySection: some View {
@@ -289,7 +344,7 @@ struct LCAdvancedInstallView: View {
                 if let workspace { try? FileManager.default.removeItem(at: workspace) }
                 workspace = directory; app = inspected; name = inspected.name; identifier = inspected.identifier
                 ipaFilename = source.lastPathComponent; icon = nil
-                enableFileSharing = inspected.fileSharingEnabled; removeAppExtensions = false
+                enableFileSharing = inspected.fileSharingEnabled; excludedExtensions.removeAll()
                 SigningDiagnostics.record("advanced.extract.end", inspected.identifier)
             } catch { try? FileManager.default.removeItem(at: directory); throw error }
         } catch { SigningDiagnostics.failure("advanced.extract.failed", error); failure = error.localizedDescription }
@@ -301,7 +356,8 @@ struct LCAdvancedInstallView: View {
         let identifier = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
         let icon = icon
         let options = SigningAdvanced.Options(enableFileSharing: enableFileSharing,
-                                              removeAppExtensions: removeAppExtensions)
+                                              removeAppExtensions: false,
+                                              excludedExtensionNames: excludedExtensions)
         do {
             guard let group = LCSharedUtils.appGroupPath() else { throw SigningInjectionFailure.invalid("Shared app group unavailable") }
             let root = group.appendingPathComponent("LiveContainer/SigningInjection")
