@@ -17,7 +17,7 @@ App artwork is displayed normally so original icons and signing/lock states stay
 - Use **Edit Apps**, or lift an icon with a long press. Icons jiggle while editing; Reduce Motion is respected.
 - Drag near another icon's edge to reorder with animated displacement.
 - Hold over its center until it expands, then release to create a folder or add to an existing folder.
-- Hold near the screen edge to change pages. UIKit handles lift previews and drag cancellation.
+- The root grid scrolls vertically through all installed apps without pages. Inside a folder, hold near the panel edge to change its own pages. UIKit handles lift previews and drag cancellation.
 - Tap a folder for its 3×3 paginated grid. Tap the title to rename it; tap outside or pinch inward to dismiss. VoiceOver supports the Escape action. There is no close button.
 - The panel expands from its measured icon position and returns there, with a damped spring and animated backdrop blur. Reduce Motion uses a short fade instead.
 - Hold a dragged member outside the panel to close the folder and continue moving it on the desktop. Native lift/cancel previews show only the rounded icon.
@@ -40,7 +40,7 @@ uses the original app controllers. Physical-device gestures, VoiceOver and guest
 Removal badges now fade/scale with their own transition. Holding an icon for its context menu does
 not enter editing: a drag activates editing only after more than eight points of actual movement.
 The whole-scroll-view long-press recognizer was removed; empty-space long press and Edit remain.
-Vertical scroll bounce is restored at the user's request, while the edge veil still reacts to scrolling.
+Vertical scroll bounce remains native. iOS 26+ uses the platform's soft scroll-edge effect when enabled; earlier iOS keeps normal scroll clipping. No custom blur/fade rectangle overlaps icons.
 
 After confirmation and successful bundle removal, a window-level snapshot breaks into tiled particles,
 then the registry/grid removes the app. Cancellation or filesystem failure does not play a fake success
@@ -58,9 +58,8 @@ the current installed inventory.
 
 Hold an app over a folder to open it without releasing the drag. Drag beyond the folder panel to
 close it, then enter another folder or drop on the desktop. Folder edge hovering turns folder pages;
-empty space accepts a drop at that page's end. Root and folder edge/dot changes use the native paged
-TabView with a short ease-in/out transition. Reordering respects movement in both directions.
+empty space accepts a drop at that folder page's end. Only folders use native paged
+TabView. The root renders one continuous ScrollView/LazyVGrid with no page dots; dragging to its end reorders without truncating items. Reordering respects movement in both directions.
 
-A masked system material softens the desktop's scroll boundaries. This is a composited blur/fade,
-not a private variable-radius blur API. Visual fixtures include root/folder editing and a second page.
+The old masked ultraThinMaterial blur bands were removed after user screenshots showed icon clipping and dark horizontal strips. On iOS 26+ SwiftUI's public scrollEdgeEffectStyle(.soft) provides the native treatment only at the scrolling boundary; no private variable-radius blur or decorative overlays are used. Regression checks must cover the root grid after a long vertical scroll and the separately paged folder.
 Fixture-driven animation recordings do not replace physical touch and drag acceptance testing.
