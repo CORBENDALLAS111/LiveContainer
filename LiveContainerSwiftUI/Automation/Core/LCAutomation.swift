@@ -37,6 +37,28 @@ struct LCAutomation: Codable, Identifiable, Equatable {
     }
 }
 
+
+/// A supported deep-link action belonging to an installed guest app.
+/// A host App Intent can route this URL through the normal guest launcher,
+/// but cannot register the guest's compiled App Intents in Shortcuts.
+struct LCGuestAction: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var name = ""
+    var app = ""
+    var deepLink = ""
+
+    var isValid: Bool {
+        let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty, label.count <= 80,
+              app.hasSuffix(".app"), app == (app as NSString).lastPathComponent,
+              deepLink.count <= 2048, let components = URLComponents(string: deepLink),
+              let scheme = components.scheme?.lowercased(), !scheme.isEmpty,
+              scheme != "file", scheme != "javascript", scheme != "data",
+              scheme != "sidestore", !deepLink.contains("\n") else { return false }
+        return URL(string: deepLink) != nil
+    }
+}
+
 struct LCAutomationFile: Codable {
     var version = 1
     var enabled = false
@@ -44,6 +66,8 @@ struct LCAutomationFile: Codable {
     var scheme = "livecontainer"
     var apps: [App] = []
     var profiles: [LCAutomation] = []
+    // Optional for compatibility with existing v1 files created before guest actions.
+    var guestActions: [LCGuestAction]?
     struct App: Codable { var id: String; var name: String }
 
     static var url: URL {
@@ -56,8 +80,11 @@ struct LCAutomationFile: Codable {
         return value
     }
     func save(to url: URL = LCAutomationFile.url) throws {
+        let actions = guestActions ?? []
         guard version == 1, profiles.count <= 100, profiles.allSatisfy(\.isValid),
-              Set(profiles.map(\.id)).count == profiles.count else { throw CocoaError(.fileWriteInvalidFileName) }
+              Set(profiles.map(\.id)).count == profiles.count,
+              actions.count <= 100, actions.allSatisfy(\.isValid),
+              Set(actions.map(\.id)).count == actions.count else { throw CocoaError(.fileWriteInvalidFileName) }
         let data = try JSONEncoder().encode(self)
         guard data.count <= 512_000 else { throw CocoaError(.fileWriteOutOfSpace) }
         try data.write(to: url, options: .atomic)
