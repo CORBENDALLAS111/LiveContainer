@@ -64,6 +64,31 @@ final class SigningInjectionTests: XCTestCase {
         XCTAssertThrowsError(try SigningInjectionApply.prepare(app: app, identifier: identifier, root: presets))
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outside.path).isEmpty)
     }
+    func testIndividualLibrariesCanBeDisabledWithoutLosingLegacyPresets() throws {
+        var preset = SigningInjectionPreset(bundleIdentifier: "org.example.target",
+            files: [], libraries: ["First.dylib", "Second.dylib"], packageNames: ["Example"])
+        XCTAssertEqual(preset.effectiveLibraries, ["First.dylib", "Second.dylib"])
+
+        let legacy = try JSONEncoder().encode(preset)
+        let decoded = try JSONDecoder().decode(SigningInjectionPreset.self, from: legacy)
+        XCTAssertNil(decoded.disabledLibraries)
+
+        preset.disabledLibraries = ["First.dylib"]
+        XCTAssertEqual(preset.effectiveLibraries, ["Second.dylib"])
+        let original = executable()
+        let injected = try SigningMachO.inject(original, libraries: preset.effectiveLibraries)
+        XCTAssertNotNil(injected.range(of: Data((SigningMachO.libraryPrefix + "Second.dylib").utf8)))
+        XCTAssertNil(injected.range(of: Data((SigningMachO.libraryPrefix + "First.dylib").utf8)))
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try preset.write(to: root)
+        let loaded = try XCTUnwrap(SigningInjectionPreset.read("org.example.target", root: root))
+        XCTAssertEqual(loaded.effectiveLibraries, ["Second.dylib"])
+        preset.disabledLibraries = ["NotInThePreset.dylib"]
+        XCTAssertThrowsError(try preset.write(to: root))
+    }
+
     func testActualDeviceExecutableInjection() throws {
         guard let path = ProcessInfo.processInfo.environment["LCOS_DEVICE_PROBE_DIR"] else { throw XCTSkip("Requires the Xcode-built device probe") }
         let url = URL(fileURLWithPath: path).appendingPathComponent("Payload/LCOSProbe.app/LCOSProbe")

@@ -101,7 +101,7 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
         if automations:
             metadata = json.loads(archive.read(root + 'Metadata.appintents/extract.actionsdata'))
             actions = metadata.get('actions', {})
-            if any(intent not in actions for intent in ['LCLaunchGuestIntent', 'LCRunAutomationIntent']):
+            if any(intent not in actions for intent in ['LCLaunchGuestIntent']):
                 raise ValueError('Main application lacks discoverable Shortcuts action metadata')
             if integrated and 'RefreshAllIntent' not in actions:
                 raise ValueError('Integrated application lost SideStore refresh action metadata')

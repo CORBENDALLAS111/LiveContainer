@@ -8,6 +8,12 @@ struct SigningInjectionPreset: Codable, Equatable {
     var files: [File]
     var libraries: [String]
     var packageNames: [String]
+    /// Optional so v1 presets written by older releases still decode.
+    /// Disabled libraries remain on disk and may be enabled without reimport.
+    var disabledLibraries: [String]? = nil
+    var effectiveLibraries: [String] {
+        libraries.filter { !(disabledLibraries ?? []).contains($0) }
+    }
     static func directory(_ identifier: String, root: URL) -> URL { root.appendingPathComponent(PackageSHA256.hex(Data(identifier.utf8))) }
     static func validateTarget(_ identifier: String) throws {
         guard identifier.count <= 255, identifier.contains("."),
@@ -19,7 +25,8 @@ struct SigningInjectionPreset: Codable, Equatable {
     func write(to root: URL) throws {
         try Self.validateTarget(bundleIdentifier)
         guard schema == 1, files.count <= 256, libraries.count <= 64,
-              Set(files.map(\.path)).count == files.count, Set(libraries).count == libraries.count else {
+              Set(files.map(\.path)).count == files.count, Set(libraries).count == libraries.count,
+              Set(disabledLibraries ?? []).isSubset(of: Set(libraries)) else {
             throw SigningInjectionFailure.invalid("Injection preset exceeds supported limits or contains duplicate entries")
         }
         let folder = Self.directory(bundleIdentifier, root: root)
@@ -32,7 +39,8 @@ struct SigningInjectionPreset: Codable, Equatable {
         let data = try Data(contentsOf: url)
         guard data.count <= 1_048_576 else { throw SigningInjectionFailure.invalid("Oversized injection preset") }
         let value = try JSONDecoder().decode(Self.self, from: data)
-        guard value.schema == 1, value.bundleIdentifier == identifier, value.files.count <= 256, value.libraries.count <= 64 else {
+        guard value.schema == 1, value.bundleIdentifier == identifier, value.files.count <= 256, value.libraries.count <= 64,
+              Set(value.disabledLibraries ?? []).isSubset(of: Set(value.libraries)) else {
             throw SigningInjectionFailure.invalid("Invalid injection preset")
         }
         return value
@@ -68,7 +76,7 @@ enum SigningInjectionApply {
             throw SigningInjectionFailure.invalid("Application executable escapes the bundle or is not a regular file")
         }
         let original = try Data(contentsOf: binaryURL)
-        let libraries = preset?.enabled == true ? preset!.libraries : []
+        let libraries = preset?.enabled == true ? preset!.effectiveLibraries : []
         let changed = try SigningMachO.inject(original, libraries: libraries)
         // Stage and validate every byte before modifying the application. SideStore signs after this returns.
         let stage = frameworkRoot.appendingPathComponent(".lcos-injection-" + UUID().uuidString)

@@ -10,6 +10,8 @@ struct LCSigningInjectionView: View {
     @State private var working = false
     @State private var error: String?
     @State private var pending: Pending?
+    @State private var verifiedFiles: [String: Bool] = [:]
+    @State private var verifying = false
     private struct Pending: Identifiable, Sendable {
         let id = UUID()
         let target: String
@@ -30,20 +32,50 @@ struct LCSigningInjectionView: View {
             } header: { Text("SideStore") } footer: { Text("lcos.signing.installDescription".signingLoc) }
             Section {
                 ForEach(presets, id: \.bundleIdentifier) { preset in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle(isOn: Binding(get: { presets.first { $0.bundleIdentifier == preset.bundleIdentifier }?.enabled ?? false },
-                                             set: { setEnabled(preset.bundleIdentifier, $0) })) {
-                            Text(preset.bundleIdentifier).font(.subheadline.weight(.medium))
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle(isOn: Binding(
+                            get: { presets.first { $0.bundleIdentifier == preset.bundleIdentifier }?.enabled ?? false },
+                            set: { setEnabled(preset.bundleIdentifier, $0) }
+                        )) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(preset.bundleIdentifier).font(.subheadline.weight(.semibold))
+                                Text(preset.packageNames.joined(separator: ", "))
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
                         }
-                        Text(preset.packageNames.joined(separator: ", ")).font(.caption).foregroundStyle(.secondary)
-                        Text("\(preset.libraries.count) dylib").font(.caption).foregroundStyle(.secondary)
+                        if !preset.libraries.isEmpty {
+                            HStack {
+                                Text("lcos.injection.libraries".signingLoc)
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                Button {
+                                    verifyLibraries(preset)
+                                } label: {
+                                    Label("lcos.injection.verify".signingLoc,
+                                          systemImage: "checkmark.shield")
+                                        .font(.caption)
+                                }
+                                .disabled(verifying || working)
+                            }
+                            ForEach(preset.libraries, id: \.self) { library in
+                                libraryRow(library, preset: preset)
+                            }
+                        }
                     }
+                    .padding(.vertical, 8)
                     .swipeActions {
-                        Button(role: .destructive) { removePreset(preset.bundleIdentifier) } label: { Label("lc.common.delete".signingLoc, systemImage: "trash") }
+                        Button(role: .destructive) { removePreset(preset.bundleIdentifier) } label: {
+                            Label("lc.common.delete".signingLoc, systemImage: "trash")
+                        }
                     }
                 }
                 if presets.isEmpty { Text("lcos.signing.empty".signingLoc).foregroundStyle(.secondary) }
-            } header: { Text("lcos.signing.configured".signingLoc) }
+            } header: {
+                Text("lcos.signing.configured".signingLoc)
+            } footer: {
+                Text("lcos.injection.orderHelp".signingLoc)
+            }
             if working { ProgressView() }
         }
         .lcSoftScrollEdges()
@@ -71,6 +103,116 @@ struct LCSigningInjectionView: View {
             Button("lc.common.cancel".signingLoc, role: .cancel) { pending = nil }
         } message: { Text("lcos.signing.trust".signingLoc) }
     }
+    private func libraryRow(_ library: String, preset: SigningInjectionPreset) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "shippingbox")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(library)
+                    .font(.footnote.weight(.medium))
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+                if let verified = verifiedFiles[library] {
+                    Label(verified ? "lcos.injection.checksumOK".signingLoc : "lcos.injection.checksumFailed".signingLoc,
+                          systemImage: verified ? "checkmark.circle" : "exclamationmark.triangle")
+                        .font(.caption2)
+                        .foregroundStyle(verified ? Color.secondary : Color.red)
+                } else {
+                    Text("lcos.injection.notVerified".signingLoc)
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 4)
+            Toggle("lcos.injection.enabled".signingLoc, isOn: Binding(
+                get: { !(preset.disabledLibraries ?? []).contains(library) },
+                set: { setLibraryEnabled(library, in: preset.bundleIdentifier, enabled: $0) }
+            ))
+            .labelsHidden()
+            .disabled(working)
+            Menu {
+                Button {
+                    moveLibrary(library, in: preset.bundleIdentifier, by: -1)
+                } label: {
+                    Label("lcos.injection.moveUp".signingLoc, systemImage: "arrow.up")
+                }
+                Button {
+                    moveLibrary(library, in: preset.bundleIdentifier, by: 1)
+                } label: {
+                    Label("lcos.injection.moveDown".signingLoc, systemImage: "arrow.down")
+                }
+                Button(role: .destructive) {
+                    removeLibrary(library, in: preset.bundleIdentifier)
+                } label: {
+                    Label("lc.common.delete".signingLoc, systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 40, height: 44)
+            }
+            .disabled(working)
+            .accessibilityLabel("lcos.home.options".loc)
+        }
+    }
+
+    private func setLibraryEnabled(_ library: String, in identifier: String, enabled: Bool) {
+        mutatePreset(identifier) { preset in
+            var disabled = Set(preset.disabledLibraries ?? [])
+            if enabled { disabled.remove(library) } else { disabled.insert(library) }
+            preset.disabledLibraries = disabled.sorted()
+        }
+    }
+
+    private func moveLibrary(_ library: String, in identifier: String, by offset: Int) {
+        mutatePreset(identifier) { preset in
+            guard let index = preset.libraries.firstIndex(of: library) else { return }
+            let newIndex = index + offset
+            guard preset.libraries.indices.contains(newIndex) else { return }
+            preset.libraries.swapAt(index, newIndex)
+        }
+    }
+
+    private func removeLibrary(_ library: String, in identifier: String) {
+        guard let root else { error = "Shared app group unavailable"; return }
+        mutatePreset(identifier) { preset in
+            preset.libraries.removeAll { $0 == library }
+            preset.files.removeAll { $0.path == library }
+            preset.disabledLibraries?.removeAll { $0 == library }
+        }
+        // Any orphaned payload file remains in the preset folder until the
+        // preset is deleted. This avoids accidentally removing shared files.
+    }
+
+    private func mutatePreset(_ identifier: String, action: (inout SigningInjectionPreset) -> Void) {
+        guard let root else { error = "Shared app group unavailable"; return }
+        do {
+            guard var preset = try SigningInjectionPreset.read(identifier, root: root) else { return }
+            action(&preset)
+            try preset.write(to: root)
+            verifiedFiles = [:]
+            reload()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func verifyLibraries(_ preset: SigningInjectionPreset) {
+        guard let root else { error = "Shared app group unavailable"; return }
+        verifying = true
+        let folder = SigningInjectionPreset.directory(preset.bundleIdentifier, root: root)
+        let files = preset.files.filter { preset.libraries.contains($0.path) }
+        Task {
+            let results = await Task.detached(priority: .utility) {
+                var result: [String: Bool] = [:]
+                for file in files {
+                    let source = folder.appendingPathComponent(file.path)
+                    let data = try? Data(contentsOf: source)
+                    result[file.path] = data.map { PackageSHA256.hex($0) == file.sha256 } ?? false
+                }
+                return result
+            }.value
+            verifiedFiles = results
+            verifying = false
+        }
+    }
+
     private func reload() {
         guard let root else { return }
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []

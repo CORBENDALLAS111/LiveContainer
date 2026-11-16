@@ -16,6 +16,11 @@ struct LCHomeScreenView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("LCOSHomeScreenEnabled", store: LCUtils.appGroupUserDefault) private var gridEnabled = true
     @AppStorage("LCOSHomeLayout", store: LCUtils.appGroupUserDefault) private var layoutJSON = ""
+    @AppStorage("LCOSHomeIconScale", store: LCUtils.appGroupUserDefault) private var iconScale = 1.0
+    @AppStorage("LCOSHomeShowLabels", store: LCUtils.appGroupUserDefault) private var showLabels = true
+    @AppStorage("LCOSHomeShowPageDots", store: LCUtils.appGroupUserDefault) private var showPageDots = true
+    @AppStorage("LCOSHomeEdgeFade", store: LCUtils.appGroupUserDefault) private var edgeFade = true
+    @AppStorage("LCOSHomeMotionMode", store: LCUtils.appGroupUserDefault) private var motionMode = "standard"
     @State private var page = 0
     @State private var query = ""
     @State private var searching = false
@@ -67,9 +72,17 @@ struct LCHomeScreenView: View {
         cachedLayout = value.reconciled(available)
         layoutJSON = string
     }
-    private func animate(_ action: () -> Void) { withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.82), action) }
+    private var motionEnabled: Bool { !reduceMotion && motionMode != "off" }
+    private var homeAnimation: Animation? {
+        guard motionEnabled else { return nil }
+        return motionMode == "gentle"
+            ? .easeInOut(duration: 0.22)
+            : .spring(response: 0.32, dampingFraction: 0.86)
+    }
+    private func animate(_ action: () -> Void) { withAnimation(homeAnimation, action) }
     private func animateFolder(_ action: () -> Void) {
-        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.86), action)
+        withAnimation(motionEnabled ? (motionMode == "gentle"
+            ? .easeInOut(duration: 0.25) : .spring(response: 0.42, dampingFraction: 0.86)) : nil, action)
     }
 
     var body: some View {
@@ -82,7 +95,7 @@ struct LCHomeScreenView: View {
                 tablet: UIDevice.current.userInterfaceIdiom == .pad,
                 mini: LCHomeMetrics.isMini(model: Self.deviceModel, shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)),
                 accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
-            let side = CGFloat(metrics.iconSide)
+            let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
             let columns = metrics.columns
             let perPage = metrics.capacity
             let ids = query.isEmpty ? layout.rootItems(available) : layout.ordered(available).filter { id in
@@ -110,16 +123,16 @@ struct LCHomeScreenView: View {
                         .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: perPage) }
                         .overlay(alignment: .trailing) { pageEdge(1, count: count, perPage: perPage) }
                     }
-                    if count > 1 { pageDots(count, selection: $page) }
+                    if showPageDots && count > 1 { pageDots(count, selection: $page) }
                     if !searching {
-                        Button { searching = true; searchFocused = true } label: {
+                        Button { animate { searching = true }; searchFocused = true } label: {
                             Label("lcos.home.search".loc, systemImage: "magnifyingglass").font(.caption.weight(.medium))
                                 .padding(.horizontal, 16).padding(.vertical, 10).lcGlass(in: Capsule(), interactive: true)
                         }.buttonStyle(.plain).padding(.bottom, 12)
                     }
                 }.frame(maxWidth: .infinity)
-                    .scaleEffect(reduceMotion ? 1 : 1 + 0.045 * folderProgress)
-                    .blur(radius: reduceMotion ? 0 : 8 * folderProgress)
+                    .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
+                    .blur(radius: motionEnabled ? 8 * folderProgress : 0)
                     .allowsHitTesting(folderID == nil)
                     .accessibilityHidden(folderID != nil)
                 if let id = folderID, let folder = layout.folders.first(where: { $0.id == id }) {
@@ -275,7 +288,7 @@ struct LCHomeScreenView: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField("lcos.home.search".loc, text: $query).textInputAutocapitalization(.never)
                 .disableAutocorrection(true).focused($searchFocused)
-            Button { query = ""; searching = false; searchFocused = false } label: {
+            Button { query = ""; animate { searching = false }; searchFocused = false } label: {
                 Image(systemName: "xmark.circle.fill").frame(width: 36, height: 36)
             }.accessibilityLabel("lc.common.cancel".loc)
         }.padding(.leading, 16).padding(.trailing, 4).padding(.vertical, 4)
@@ -323,12 +336,13 @@ struct LCHomeScreenView: View {
                 VStack(spacing: 0) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: CGFloat(metrics.rowSpacing)) {
                         ForEach(ids, id: \.self) { id in tile(id, side: side, container: nil) }
-                    }.padding(.horizontal, CGFloat(metrics.horizontalInset)).padding(.top, 10).padding(.bottom, 12)
+                    }.padding(.horizontal, CGFloat(metrics.horizontalInset)).padding(.top, 20).padding(.bottom, 24)
                     blankArea { dropAtPageEnd(index, perPage: perPage, folder: nil) }
                         .frame(minHeight: 28, maxHeight: .infinity)
                 }.frame(minHeight: proxy.size.height, alignment: .top)
                     .background(LCHomeBlankPress(perform: { startEditing() }, tapped: { if editing { finishEditing() } }, enabled: folderID == nil))
             }.modifier(LCHomeCleanScrollEdges())
+                .modifier(LCHomeOptionalVeil(enabled: edgeFade))
         }
     }
     private func dropAtPageEnd(_ index: Int, perPage: Int, folder: String?) {
@@ -418,11 +432,14 @@ struct LCHomeScreenView: View {
                         }
                     }.padding(7).frame(width: side, height: side, alignment: .top)
                         .lcGlass(in: RoundedRectangle(cornerRadius: side * 0.235))
-                    Text(folder.name).font(.caption2).lineLimit(1).foregroundStyle(.primary)
+                    if showLabels {
+                        Text(folder.name).font(.caption2).lineLimit(1).foregroundStyle(.primary)
+                    }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }.buttonStyle(.plain)
         } else if let app = model(id) {
-            LCAppBanner(appModel: app, delegate: delegate, homeScreen: true, iconSide: side, homeEditing: editing)
+            LCAppBanner(appModel: app, delegate: delegate, homeScreen: true,
+                        iconSide: side, homeEditing: editing, showLabel: showLabels)
         }
     }
 

@@ -6,7 +6,16 @@ enum SigningAdvanced {
         let name: String
         let identifier: String
         let fileSharingEnabled: Bool
-        let extensionCount: Int
+        let extensions: [EmbeddedExtension]
+        var extensionCount: Int { extensions.count }
+    }
+    /// Describes an actual embedded .appex; it is not a claim of signing
+    /// compatibility or support for running that extension inside a guest.
+    struct EmbeddedExtension: Identifiable, Hashable {
+        let id: String // Direct child folder under PlugIns
+        let bundleIdentifier: String
+        let title: String
+        let extensionPoint: String
     }
 
     /// Applied to a disposable copy of the IPA before SideStore signs it.
@@ -14,6 +23,8 @@ enum SigningAdvanced {
     struct Options: Sendable {
         var enableFileSharing: Bool
         var removeAppExtensions: Bool = false
+        /// Individual .appex names to omit from the staged IPA before signing.
+        var excludedExtensionNames: Set<String> = []
     }
     static func inspect(_ directory: URL) throws -> App {
         let apps = try FileManager.default.contentsOfDirectory(at: directory.appendingPathComponent("Payload"), includingPropertiesForKeys: nil)
@@ -31,12 +42,29 @@ enum SigningAdvanced {
         let plugins = app.appendingPathComponent("PlugIns", isDirectory: true)
         let extensions = (try? FileManager.default.contentsOfDirectory(
             at: plugins, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
-        let count = extensions.filter { $0.pathExtension == "appex" }.count
+        let embedded = try extensions.filter { $0.pathExtension == "appex" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .map { url -> EmbeddedExtension in
+                let metadata = try read(url)
+                guard let bundleID = metadata["CFBundleIdentifier"] as? String,
+                      let attributes = try? url.resourceValues(forKeys: [.isDirectoryKey]),
+                      attributes.isDirectory == true else {
+                    throw SigningInjectionFailure.invalid("Invalid app extension metadata")
+                }
+                let point = (metadata["NSExtension"] as? [String: Any])?["NSExtensionPointIdentifier"] as? String ?? ""
+                return EmbeddedExtension(
+                    id: url.lastPathComponent,
+                    bundleIdentifier: bundleID,
+                    title: metadata["CFBundleDisplayName"] as? String ??
+                        metadata["CFBundleName"] as? String ??
+                        url.deletingPathExtension().lastPathComponent,
+                    extensionPoint: point)
+            }
         return App(url: app,
                    name: plist["CFBundleDisplayName"] as? String ?? plist["CFBundleName"] as? String ?? identifier,
                    identifier: identifier,
                    fileSharingEnabled: plist["UIFileSharingEnabled"] as? Bool ?? false,
-                   extensionCount: count)
+                   extensions: embedded)
     }
     static func customize(_ app: App, name: String, identifier: String, iconPNG: Data?,
                           options: Options? = nil) throws {
@@ -50,13 +78,21 @@ enum SigningAdvanced {
         let extensionURLs = ((try? manager.contentsOfDirectory(
             at: plugins, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
             .filter { $0.pathExtension == "appex" }
+        let knownNames = Set(extensionURLs.map(\.lastPathComponent))
+        let excluded = options.removeAppExtensions
+            ? knownNames : options.excludedExtensionNames
+        guard excluded.isSubset(of: knownNames) else {
+            throw SigningInjectionFailure.invalid("An app extension was removed or renamed; select it again")
+        }
         // The package is copied to a staging directory before any modification.
         // Preserve embedded app metadata except inside removed extensions.
         var bundles = [app.url]
         if let enumerator = manager.enumerator(at: app.url, includingPropertiesForKeys: [.isDirectoryKey]) {
             for case let url as URL in enumerator where url.pathExtension == "appex" || url.pathExtension == "app" {
-                if options.removeAppExtensions &&
-                   extensionURLs.contains(where: { url.path == $0.path || url.path.hasPrefix($0.path + "/") }) {
+                if extensionURLs.contains(where: {
+                    excluded.contains($0.lastPathComponent) &&
+                    (url.path == $0.path || url.path.hasPrefix($0.path + "/"))
+                }) {
                     continue
                 }
                 bundles.append(url)
@@ -110,13 +146,10 @@ enum SigningAdvanced {
             let signature = bundle.appendingPathComponent("_CodeSignature")
             if manager.fileExists(atPath: signature.path) { try manager.removeItem(at: signature) }
         }
-        if options.removeAppExtensions {
-            // Remove only the selected top-level .appex bundles. Other resources,
-            // frameworks and watch apps remain intact. SideStore will derive
-            // provisioning profiles from this *prepared* IPA.
-            for extensionURL in extensionURLs {
-                try manager.removeItem(at: extensionURL)
-            }
+        // Remove only selected top-level .appex bundles, after all metadata
+        // changes have validated. Untouched .appex files remain in the IPA.
+        for extensionURL in extensionURLs where excluded.contains(extensionURL.lastPathComponent) {
+            try manager.removeItem(at: extensionURL)
         }
         try SigningBundleIdentifiers.validateBundle(at: app.url)
     }
