@@ -46,13 +46,13 @@ struct LCSigningInjectionView: View {
                         }
                         if !preset.libraries.isEmpty {
                             HStack {
-                                Text("lcos.injection.libraries".loc)
+                                Text("lcos.injection.libraries".signingLoc)
                                     .font(.subheadline.weight(.medium))
                                 Spacer()
                                 Button {
                                     verifyLibraries(preset)
                                 } label: {
-                                    Label("lcos.injection.verify".loc,
+                                    Label("lcos.injection.verify".signingLoc,
                                           systemImage: "checkmark.shield")
                                         .font(.caption)
                                 }
@@ -74,7 +74,7 @@ struct LCSigningInjectionView: View {
             } header: {
                 Text("lcos.signing.configured".signingLoc)
             } footer: {
-                Text("lcos.injection.orderHelp".loc)
+                Text("lcos.injection.orderHelp".signingLoc)
             }
             if working { ProgressView() }
         }
@@ -113,17 +113,17 @@ struct LCSigningInjectionView: View {
                     .lineLimit(2)
                     .textSelection(.enabled)
                 if let verified = verifiedFiles[library] {
-                    Label(verified ? "lcos.injection.checksumOK".loc : "lcos.injection.checksumFailed".loc,
+                    Label(verified ? "lcos.injection.checksumOK".signingLoc : "lcos.injection.checksumFailed".signingLoc,
                           systemImage: verified ? "checkmark.circle" : "exclamationmark.triangle")
                         .font(.caption2)
                         .foregroundStyle(verified ? Color.secondary : Color.red)
                 } else {
-                    Text("lcos.injection.notVerified".loc)
+                    Text("lcos.injection.notVerified".signingLoc)
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 4)
-            Toggle("lcos.injection.enabled".loc, isOn: Binding(
+            Toggle("lcos.injection.enabled".signingLoc, isOn: Binding(
                 get: { !(preset.disabledLibraries ?? []).contains(library) },
                 set: { setLibraryEnabled(library, in: preset.bundleIdentifier, enabled: $0) }
             ))
@@ -133,12 +133,12 @@ struct LCSigningInjectionView: View {
                 Button {
                     moveLibrary(library, in: preset.bundleIdentifier, by: -1)
                 } label: {
-                    Label("lcos.injection.moveUp".loc, systemImage: "arrow.up")
+                    Label("lcos.injection.moveUp".signingLoc, systemImage: "arrow.up")
                 }
                 Button {
                     moveLibrary(library, in: preset.bundleIdentifier, by: 1)
                 } label: {
-                    Label("lcos.injection.moveDown".loc, systemImage: "arrow.down")
+                    Label("lcos.injection.moveDown".signingLoc, systemImage: "arrow.down")
                 }
                 Button(role: .destructive) {
                     removeLibrary(library, in: preset.bundleIdentifier)
