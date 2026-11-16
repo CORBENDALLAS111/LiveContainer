@@ -45,20 +45,20 @@ struct LCTweakMarketplace: View {
         }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
+    // Browse and repository management stay in one native List. Multiple
+    // side-by-side Lists under one NavigationStack competed for the title
+    // safe-area insets on iPad mini and made content jump during rotation.
+    // One list preserves search, swipe-delete and pull-to-refresh everywhere.
     var body: some View {
         List {
             marketplaceHeader
             if showSources { repositorySection } else { catalogFilters }
-            if working { Section { ProgressView("life.market.loading".loc) } }
-            if !failures.isEmpty { Section { ForEach(failures, id: \.self) { Text($0).font(.footnote).foregroundStyle(.secondary) } } }
-            if !showSources { catalogSection }
-            Section {
-                NavigationLink { LCDebPackageView() } label: { Label("life.market.installed".loc, systemImage: "checkmark.seal") }
-            }
+            marketplaceResults
         }
+        .listStyle(.insetGrouped)
+        .refreshable { await refresh() }
         .navigationTitle("life.market.title".loc)
         .searchable(text: $query, prompt: "life.market.search".loc)
-        .refreshable { await refresh() }
         .task(id: sourceJSON) { await refresh() }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -81,14 +81,34 @@ struct LCTweakMarketplace: View {
             Button("lc.common.ok".loc) { error = "" }
         } message: { Text(error) }
     }
+    // Shared between stacked and split layouts so navigation, loading,
+    // empty-state and installed-package actions are identical.
+    @ViewBuilder
+    private var marketplaceResults: some View {
+        if working { Section { ProgressView("life.market.loading".loc) } }
+        if !failures.isEmpty {
+            Section {
+                ForEach(failures, id: \.self) {
+                    Text($0).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+        }
+        if !showSources { catalogSection }
+        Section {
+            NavigationLink { LCDebPackageView() } label: {
+                Label("life.market.installed".loc, systemImage: "checkmark.seal")
+            }
+        }
+    }
+
     private var marketplaceHeader: some View {
         Section {
             HStack(spacing: 16) {
                 Image(systemName: "shippingbox.fill").font(.largeTitle).foregroundStyle(.tint)
                     .frame(width: 64, height: 64).background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("life.market.title".loc).font(.title2.bold())
-                    Text("life.market.subtitle".loc).font(.subheadline).foregroundStyle(.secondary)
+                    Text("life.market.title".loc).font(.title2.bold()).lineLimit(2)
+                    Text("life.market.subtitle".loc).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }.padding(.vertical, 8)
             Picker("life.market.title".loc, selection: $showSources) {
@@ -102,7 +122,11 @@ struct LCTweakMarketplace: View {
             ForEach(sources) { source in
                 VStack(alignment: .leading, spacing: 5) {
                     Label(source.url.host ?? source.id, systemImage: "server.rack").font(.headline)
-                    Text(source.url.absoluteString).font(.caption).foregroundStyle(.secondary)
+                    Text(source.url.absoluteString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
                     Text("\(packages.filter { $0.source == source.id }.count) " + "life.market.packages".loc)
                         .font(.caption).foregroundStyle(.secondary)
                     Button("life.market.viewSource".loc) { selectedSource = source.id; showSources = false }
