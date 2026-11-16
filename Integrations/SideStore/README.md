@@ -35,6 +35,31 @@ Portable tests cover payload corruption, rollback, removal, idempotence and pres
 The Xcode-built controlled ARM64 device guest is also injected and ad-hoc signed/verified in macOS CI.
 These tests do not establish hook compatibility or a successful Apple-account install/refresh on a phone.
 
+## Native Advanced Install sheet
+
+The **Advanced Install** action in the embedded SideStore's IPA import menu opens a native
+SwiftUI sheet implemented in `LCAdvancedInstallView` in the LifeContainer host. The
+ordinary LifeContainer+ IPA import and ordinary SideStore install/refresh flows are unchanged.
+Users choose an IPA, review its real bundle metadata, optionally change its display name,
+bundle ID or icon, and configure supported dylib/DEB injection presets before preparation.
+
+- **Enable File Sharing** edits `UIFileSharingEnabled` in the staged app's `Info.plist`.
+  When enabled, `LSSupportsOpeningDocumentsInPlace` is also set so the app's Documents
+  directory is available to Files. It does not expose unrelated sandbox directories.
+  The original value is displayed on load and preserved by default.
+- **Remove App Extensions** is visible only when the IPA contains `.appex` bundles in
+  `PlugIns`. It is disabled by default, removes those extension bundles from the
+  staged copy and may break extension-dependent features such as widgets and sharing.
+  Other embedded resources and executables are retained.
+- **Manage injected libraries** opens the existing validated injection preset UI, keyed
+  to the effective bundle ID. No unsupported device-limit bypass or fictitious Apple
+  account/signing selector is offered.
+
+The advanced editor never signs or installs itself: it creates a prepared IPA from a
+private staging directory and hands it back to SideStore. Signing, provisioning,
+installation and their errors still belong to the real SideStore pipeline. Empty/invalid
+choices fail before handoff. Cancel leaves the original IPA untouched.
+
 ## Extension bundle identifiers
 
 The single-profile path now fetches the profile under the effective target bundle ID and keys its

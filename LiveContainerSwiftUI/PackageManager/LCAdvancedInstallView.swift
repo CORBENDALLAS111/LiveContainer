@@ -14,6 +14,9 @@ struct LCAdvancedInstallView: View {
     @State private var workspace: URL?
     @State private var name = ""
     @State private var identifier = ""
+    @State private var ipaFilename = ""
+    @State private var enableFileSharing = false
+    @State private var removeAppExtensions = false
     @State private var icon: Data?
     @State private var failure: String?
     @State private var injecting = false
@@ -22,42 +25,36 @@ struct LCAdvancedInstallView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section {
-                    Button { importing = true } label: { Label("lc.appList.installFromIpa".installLoc, systemImage: "doc.badge.plus") }.disabled(working)
-                    if let app { Text(app.identifier).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                if let app {
+                    appSummary(app)
+                    appOptions(app)
+                    identitySection
+                    injectionSection
+                } else {
+                    chooseIPASection
                 }
-                if app != nil {
-                    Section("lcos.install.identity".installLoc) {
-                        TextField("lcos.install.name".installLoc, text: $name)
-                        TextField("Bundle ID", text: $identifier).textInputAutocapitalization(.never).disableAutocorrection(true)
-                        Button { importingIcon = true } label: {
-                            HStack {
-                                Label("lcos.install.icon".installLoc, systemImage: "photo")
-                                Spacer()
-                                if let icon, let image = UIImage(data: icon) {
-                                    Image(uiImage: image).resizable().scaledToFit().frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                            }
-                        }
-                        if icon != nil { Button("lcos.install.originalIcon".installLoc) { icon = nil } }
-                    }.disabled(working)
-                    Section {
-                        Button { injecting = true } label: { Label("lcos.signing.title".installLoc, systemImage: "syringe") }
-                            .disabled(working || (try? SigningInjectionPreset.validateTarget(identifier)) == nil)
-                    } footer: { Text("lcos.install.injectionDescription".installLoc) }
-                    Section {
-                        HStack { Text("lcos.install.destination".installLoc); Spacer(); Text("SideStore").foregroundStyle(.secondary) }
-                        Button("lcos.install.start".installLoc) { Task { await prepare() } }.disabled(!ready)
-                    } footer: { Text("lcos.install.sidestoreDescription".installLoc) }
+                if working { progressSection }
+            }
+            .lcSoftScrollEdges()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if app != nil { installBar }
+            }
+            .navigationTitle("lcos.install.advanced".installLoc)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("lc.common.cancel".installLoc, action: cancel)
+                        .disabled(working)
                 }
-                if working { HStack { ProgressView(); Text(status).font(.callout) } }
-            }.lcSoftScrollEdges()
-                .navigationTitle("lcos.install.advanced".installLoc)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("lc.common.cancel".installLoc) {
-                    if !retained, let workspace { try? FileManager.default.removeItem(at: workspace) }
-                    dismiss()
-                }.disabled(working) } }
-        }.navigationViewStyle(.stack)
+                ToolbarItem(placement: .confirmationAction) {
+                    if app != nil {
+                        Button("lcos.install.changeIPA".installLoc) { importing = true }
+                            .disabled(working)
+                    }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
         .interactiveDismissDisabled(working)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data], allowsMultipleSelection: false) { result in
             do { if let url = try result.get().first { Task { await load(url) } } } catch { failure = error.localizedDescription }
@@ -91,6 +88,175 @@ struct LCAdvancedInstallView: View {
             Button("lc.common.ok".installLoc) { failure = nil }
         } message: { Text(failure ?? "") }
     }
+    private func cancel() {
+        if !retained, let workspace {
+            try? FileManager.default.removeItem(at: workspace)
+        }
+        dismiss()
+    }
+
+    private func appSummary(_ app: SigningAdvanced.App) -> some View {
+        Section {
+            HStack(spacing: 14) {
+                appArtwork
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(ipaFilename).font(.headline).lineLimit(2)
+                    Text(app.name).font(.subheadline).foregroundStyle(.secondary)
+                    Label("SideStore", systemImage: "iphone")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 6)
+            .accessibilityElement(children: .combine)
+        } footer: {
+            Text("lcos.install.sidestoreDescription".installLoc)
+        }
+    }
+
+    @ViewBuilder
+    private var appArtwork: some View {
+        Group {
+            if let icon, let image = UIImage(data: icon) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.title)
+                    .foregroundStyle(.tint)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(width: 60, height: 60)
+        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func appOptions(_ app: SigningAdvanced.App) -> some View {
+        Section {
+            Toggle(isOn: $enableFileSharing) {
+                Label("lcos.install.fileSharing".installLoc, systemImage: "folder")
+            }
+            if app.extensionCount > 0 {
+                Toggle(isOn: $removeAppExtensions) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("lcos.install.removeExtensions".installLoc,
+                              systemImage: "puzzlepiece.extension")
+                        Text(String(format: "lcos.install.extensionsCount".installLoc, app.extensionCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if removeAppExtensions {
+                    Label("lcos.install.extensionWarning".installLoc,
+                          systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        } header: {
+            Text("lcos.install.options".installLoc)
+        } footer: {
+            Text("lcos.install.fileSharingHelp".installLoc)
+        }
+        .disabled(working)
+    }
+
+    private var identitySection: some View {
+        Section("lcos.install.identity".installLoc) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("lcos.install.name".installLoc)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("lcos.install.name".installLoc, text: $name)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Bundle ID")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("Bundle ID", text: $identifier)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .font(.system(.body, design: .monospaced))
+            }
+            Button { importingIcon = true } label: {
+                HStack {
+                    Label("lcos.install.icon".installLoc, systemImage: "photo")
+                    Spacer()
+                    if icon != nil {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    }
+                }
+            }
+            if icon != nil {
+                Button("lcos.install.originalIcon".installLoc) { icon = nil }
+            }
+        }
+        .disabled(working)
+    }
+
+    private var injectionSection: some View {
+        Section {
+            Button { injecting = true } label: {
+                HStack {
+                    Label("lcos.install.injection".installLoc, systemImage: "square.stack.3d.up")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .disabled(working || (try? SigningInjectionPreset.validateTarget(identifier)) == nil)
+        } footer: {
+            Text("lcos.install.injectionDescription".installLoc)
+        }
+    }
+
+    private var chooseIPASection: some View {
+        Section {
+            Button { importing = true } label: {
+                Label("lc.appList.installFromIpa".installLoc, systemImage: "doc.badge.plus")
+                    .frame(minHeight: 44)
+            }
+            .disabled(working)
+        } footer: {
+            Text("lcos.install.chooseIPADescription".installLoc)
+        }
+    }
+
+    private var progressSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                ProgressView()
+                Text(status).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var installBar: some View {
+        Button {
+            Task { await prepare() }
+        } label: {
+            HStack(spacing: 10) {
+                if working {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: "checkmark.shield")
+                }
+                Text("lcos.install.start".installLoc).font(.headline)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!ready)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.regularMaterial)
+    }
+
     private func load(_ source: URL) async {
         working = true; status = "lcos.install.inspect".installLoc; defer { working = false }
         let scoped = source.startAccessingSecurityScopedResource(); defer { if scoped { source.stopAccessingSecurityScopedResource() } }
@@ -121,7 +287,9 @@ struct LCAdvancedInstallView: View {
                     return try SigningAdvanced.inspect(directory)
                 }.value
                 if let workspace { try? FileManager.default.removeItem(at: workspace) }
-                workspace = directory; app = inspected; name = inspected.name; identifier = inspected.identifier; icon = nil
+                workspace = directory; app = inspected; name = inspected.name; identifier = inspected.identifier
+                ipaFilename = source.lastPathComponent; icon = nil
+                enableFileSharing = inspected.fileSharingEnabled; removeAppExtensions = false
                 SigningDiagnostics.record("advanced.extract.end", inspected.identifier)
             } catch { try? FileManager.default.removeItem(at: directory); throw error }
         } catch { SigningDiagnostics.failure("advanced.extract.failed", error); failure = error.localizedDescription }
@@ -132,6 +300,8 @@ struct LCAdvancedInstallView: View {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let identifier = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
         let icon = icon
+        let options = SigningAdvanced.Options(enableFileSharing: enableFileSharing,
+                                              removeAppExtensions: removeAppExtensions)
         do {
             guard let group = LCSharedUtils.appGroupPath() else { throw SigningInjectionFailure.invalid("Shared app group unavailable") }
             let root = group.appendingPathComponent("LiveContainer/SigningInjection")
@@ -143,7 +313,8 @@ struct LCAdvancedInstallView: View {
                 try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
                 try FileManager.default.copyItem(at: workspace.appendingPathComponent("Payload"), to: staging.appendingPathComponent("Payload"))
                 let copy = try SigningAdvanced.inspect(staging)
-                try SigningAdvanced.customize(copy, name: name, identifier: identifier, iconPNG: icon)
+                try SigningAdvanced.customize(copy, name: name, identifier: identifier,
+                                              iconPNG: icon, options: options)
                 try SigningInjectionApply.prepare(app: copy.url, identifier: identifier, root: root)
                 var error = [CChar](repeating: 0, count: 1024)
                 guard lc_ipa_pack(staging.path, output.path, &error, error.count) == 0 else {
