@@ -4,9 +4,9 @@ The display name is LifeContainer+. Bundle identifiers and executables stay comp
 
 ## Desktop
 
-Phone portrait uses 4 columns and 6 rows. Mini-sized iPad windows use 5×6; larger iPads use 5×5 portrait and 6×5 landscape. Compact windows and landscape phones reflow. Small screens and accessibility sizes retain scrolling. Metrics use the actual window dimensions; rotating does not rewrite the stored app order. The existing tab bar is retained.
+Phone portrait uses 4 columns in one vertically scrolling LazyVGrid, with unlimited rows (no root pages or page dots). Mini-sized iPad windows use 5 columns in portrait, while larger iPads use 5 columns in portrait and 6 in landscape. Compact windows and landscape phones reflow. Smaller screens and accessibility sizes retain the same continuous vertical scrolling. Metrics use the actual window dimensions; rotating does not rewrite the stored app order. The existing tab bar is retained.
 
-The desktop title is centered independently of trailing controls. IPA is the first installation action; SideStore is next to the plus button. Desktop scrolling has no material veil or soft edge blur. App icon variants follow the system appearance when the guest supplies them.
+The desktop title is centered independently of trailing controls. IPA is the first installation action; SideStore is next to the plus button. Desktop scrolling has no custom material veil; iOS 26+ can render its real system soft scroll-edge effect, while earlier versions retain native scroll behavior. App icon variants follow the system appearance when the guest supplies them.
 
 Icon jiggle uses an isolated Core Animation layer. Folder placement/drop frames do not participate in that animation. Done commits placement immediately. During folder transitions the background accepts reversal taps while the Done control remains available.
 
