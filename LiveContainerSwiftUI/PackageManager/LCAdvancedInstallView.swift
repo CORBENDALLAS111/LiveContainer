@@ -76,6 +76,13 @@ struct LCAdvancedInstallView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            if removeAppExtensions {
+                                Label("lcos.install.extensionWarning".installLoc,
+                                      systemImage: "exclamationmark.triangle")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     } header: {
                         Text("lcos.install.options".installLoc)
