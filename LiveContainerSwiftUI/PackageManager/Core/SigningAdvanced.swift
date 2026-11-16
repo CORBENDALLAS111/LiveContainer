@@ -5,6 +5,15 @@ enum SigningAdvanced {
         let url: URL
         let name: String
         let identifier: String
+        let fileSharingEnabled: Bool
+        let extensionCount: Int
+    }
+
+    /// Applied to a disposable copy of the IPA before SideStore signs it.
+    /// Defaults preserve the IPA's original file-sharing setting and extensions.
+    struct Options: Sendable {
+        var enableFileSharing: Bool
+        var removeAppExtensions: Bool = false
     }
     static func inspect(_ directory: URL) throws -> App {
         let apps = try FileManager.default.contentsOfDirectory(at: directory.appendingPathComponent("Payload"), includingPropertiesForKeys: nil)
@@ -19,17 +28,39 @@ enum SigningAdvanced {
         }
         try SigningInjectionPreset.validateTarget(identifier)
         try SigningBundleIdentifiers.validateBundle(at: app)
-        return App(url: app, name: plist["CFBundleDisplayName"] as? String ?? plist["CFBundleName"] as? String ?? identifier, identifier: identifier)
+        let plugins = app.appendingPathComponent("PlugIns", isDirectory: true)
+        let extensions = (try? FileManager.default.contentsOfDirectory(
+            at: plugins, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        let count = extensions.filter { $0.pathExtension == "appex" }.count
+        return App(url: app,
+                   name: plist["CFBundleDisplayName"] as? String ?? plist["CFBundleName"] as? String ?? identifier,
+                   identifier: identifier,
+                   fileSharingEnabled: plist["UIFileSharingEnabled"] as? Bool ?? false,
+                   extensionCount: count)
     }
-    static func customize(_ app: App, name: String, identifier: String, iconPNG: Data?) throws {
+    static func customize(_ app: App, name: String, identifier: String, iconPNG: Data?,
+                          options: Options? = nil) throws {
         try SigningInjectionPreset.validateTarget(identifier)
+        let options = options ?? Options(enableFileSharing: app.fileSharingEnabled)
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name.count <= 128 else {
             throw SigningInjectionFailure.invalid("Enter an application name of 1–128 characters")
         }
         let manager = FileManager.default
+        let plugins = app.url.appendingPathComponent("PlugIns", isDirectory: true)
+        let extensionURLs = ((try? manager.contentsOfDirectory(
+            at: plugins, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
+            .filter { $0.pathExtension == "appex" }
+        // The package is copied to a staging directory before any modification.
+        // Preserve embedded app metadata except inside removed extensions.
         var bundles = [app.url]
         if let enumerator = manager.enumerator(at: app.url, includingPropertiesForKeys: [.isDirectoryKey]) {
-            for case let url as URL in enumerator where url.pathExtension == "appex" || url.pathExtension == "app" { bundles.append(url) }
+            for case let url as URL in enumerator where url.pathExtension == "appex" || url.pathExtension == "app" {
+                if options.removeAppExtensions &&
+                   extensionURLs.contains(where: { url.path == $0.path || url.path.hasPrefix($0.path + "/") }) {
+                    continue
+                }
+                bundles.append(url)
+            }
         }
         var changes: [(URL, [String: Any])] = []
         for bundle in bundles {
@@ -52,6 +83,12 @@ enum SigningAdvanced {
             plist = updated
             if bundle == app.url {
                 plist["CFBundleDisplayName"] = name; plist["CFBundleName"] = name
+                plist["UIFileSharingEnabled"] = options.enableFileSharing
+                if options.enableFileSharing {
+                    // Also expose Documents in the Files app; this alone cannot
+                    // grant access to a sandbox outside the app's Documents folder.
+                    plist["LSSupportsOpeningDocumentsInPlace"] = true
+                }
                 if iconPNG != nil {
                     let primary: [String: Any] = ["CFBundleIconFiles": ["LCOSCustomIcon"], "UIPrerenderedIcon": false]
                     plist["CFBundleIcons"] = ["CFBundlePrimaryIcon": primary]
@@ -72,6 +109,14 @@ enum SigningAdvanced {
                 .write(to: bundle.appendingPathComponent("Info.plist"), options: .atomic)
             let signature = bundle.appendingPathComponent("_CodeSignature")
             if manager.fileExists(atPath: signature.path) { try manager.removeItem(at: signature) }
+        }
+        if options.removeAppExtensions {
+            // Remove only the selected top-level .appex bundles. Other resources,
+            // frameworks and watch apps remain intact. SideStore will derive
+            // provisioning profiles from this *prepared* IPA.
+            for extensionURL in extensionURLs {
+                try manager.removeItem(at: extensionURL)
+            }
         }
         try SigningBundleIdentifiers.validateBundle(at: app.url)
     }
