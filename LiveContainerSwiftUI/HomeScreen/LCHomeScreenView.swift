@@ -18,10 +18,9 @@ struct LCHomeScreenView: View {
     @AppStorage("LCOSHomeLayout", store: LCUtils.appGroupUserDefault) private var layoutJSON = ""
     @AppStorage("LCOSHomeIconScale", store: LCUtils.appGroupUserDefault) private var iconScale = 1.0
     @AppStorage("LCOSHomeShowLabels", store: LCUtils.appGroupUserDefault) private var showLabels = true
-    @AppStorage("LCOSHomeShowPageDots", store: LCUtils.appGroupUserDefault) private var showPageDots = true
+    @AppStorage("LCOSHomeScrollIndicator", store: LCUtils.appGroupUserDefault) private var showScrollIndicator = true
     @AppStorage("LCOSHomeEdgeFade", store: LCUtils.appGroupUserDefault) private var edgeFade = true
     @AppStorage("LCOSHomeMotionMode", store: LCUtils.appGroupUserDefault) private var motionMode = "standard"
-    @State private var page = 0
     @State private var query = ""
     @State private var searching = false
     @State private var editing = false
@@ -97,12 +96,10 @@ struct LCHomeScreenView: View {
                 accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
             let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
             let columns = metrics.columns
-            let perPage = metrics.capacity
             let ids = query.isEmpty ? layout.rootItems(available) : layout.ordered(available).filter { id in
                 guard let app = model(id) else { return false }
                 return app.displayName.localizedCaseInsensitiveContains(query) || app.bundleIdentifier.localizedCaseInsensitiveContains(query)
             }
-            let count = max(1, (ids.count + perPage - 1) / perPage)
             ZStack {
                 (scheme == .dark ? Color.black : Color.white).ignoresSafeArea()
                     .contentShape(Rectangle()).onLongPressGesture { startEditing() }
@@ -114,16 +111,8 @@ struct LCHomeScreenView: View {
                     else if ids.isEmpty {
                         Text("lcos.home.noResults".loc).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        TabView(selection: $page) {
-                            ForEach(0..<count, id: \.self) { index in
-                                desktopPage(Array(ids.dropFirst(index * perPage).prefix(perPage)),
-                                            index: index, columns: columns, side: side, perPage: perPage, metrics: metrics).tag(index)
-                            }
-                        }.tabViewStyle(.page(indexDisplayMode: .never))
-                        .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: perPage) }
-                        .overlay(alignment: .trailing) { pageEdge(1, count: count, perPage: perPage) }
+                        continuousGrid(ids, columns: columns, side: side, metrics: metrics)
                     }
-                    if showPageDots && count > 1 { pageDots(count, selection: $page) }
                     if !searching {
                         Button { animate { searching = true }; searchFocused = true } label: {
                             Label("lcos.home.search".loc, systemImage: "magnifyingglass").font(.caption.weight(.medium))
@@ -140,9 +129,7 @@ struct LCHomeScreenView: View {
                 }
             }
             .onPreferenceChange(LCHomeFolderFrames.self) { if folderID == nil { folderFrames = $0 } }
-            .onChange(of: count) { page = min(page, $0 - 1) }
-            .onChange(of: query) { _ in page = 0 }
-        }
+         }
         .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEdit)) { _ in
             guard gridEnabled else { return }
             startEditing()
@@ -157,7 +144,7 @@ struct LCHomeScreenView: View {
             NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: isEditing)
         }
         .confirmationDialog("lcos.home.reset".loc, isPresented: $resetConfirmation) {
-            Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); page = 0; folderID = nil; folderProgress = 0 }
+            Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); folderID = nil; folderProgress = 0 }
         }
         .onChange(of: layoutJSON) { _ in refreshLayout() }
         .onChange(of: available) { _ in refreshLayout() }
@@ -179,7 +166,6 @@ struct LCHomeScreenView: View {
                 if let data = try? Data(contentsOf: url),
                    let values = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
                    let json = values["LCOSHomeLayout"] as? String { layoutJSON = json }
-                page = max(0, UserDefaults.standard.integer(forKey: "LCOSPreviewPage"))
                 if let id = UserDefaults.standard.string(forKey: "LCOSPreviewFolder"),
                    let folder = layout.folders.first(where: { $0.id == id }) { folderID = id; folderName = folder.name }
                 if UserDefaults.standard.bool(forKey: "LCOSPreviewMotion"), let folder = layout.folders.first {
@@ -205,10 +191,6 @@ struct LCHomeScreenView: View {
                         closeFolder()
                         try? await Task.sleep(nanoseconds: 1_000_000_000)
                         guard !Task.isCancelled else { return }
-                        withAnimation(.easeInOut(duration: 0.32)) { page = 1 }
-                        try? await Task.sleep(nanoseconds: 1_200_000_000)
-                        guard !Task.isCancelled else { return }
-                        withAnimation(.easeInOut(duration: 0.32)) { page = 0 }
                     }
                 }
             }
@@ -330,28 +312,59 @@ struct LCHomeScreenView: View {
         Color.clear.contentShape(Rectangle())
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {}, exit: {}, finish: drop))
     }
-    private func desktopPage(_ ids: [String], index: Int, columns: Int, side: CGFloat, perPage: Int, metrics: LCHomeMetrics) -> some View {
+    /// One continuous, lazily loaded iPhone/iPad home grid. Root app placement
+    /// has no pages; folders retain their own familiar paging interaction.
+    private func continuousGrid(_ ids: [String], columns: Int, side: CGFloat,
+                                metrics: LCHomeMetrics) -> some View {
         GeometryReader { proxy in
-            ScrollView(showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: showScrollIndicator) {
                 VStack(spacing: 0) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: CGFloat(metrics.rowSpacing)) {
-                        ForEach(ids, id: \.self) { id in tile(id, side: side, container: nil) }
-                    }.padding(.horizontal, CGFloat(metrics.horizontalInset)).padding(.top, 20).padding(.bottom, 24)
-                    blankArea { dropAtPageEnd(index, perPage: perPage, folder: nil) }
-                        .frame(minHeight: 28, maxHeight: .infinity)
-                }.frame(minHeight: proxy.size.height, alignment: .top)
-                    .background(LCHomeBlankPress(perform: { startEditing() }, tapped: { if editing { finishEditing() } }, enabled: folderID == nil))
-            }.modifier(LCHomeCleanScrollEdges())
-                .modifier(LCHomeOptionalVeil(enabled: edgeFade))
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+                                       count: columns),
+                        spacing: CGFloat(metrics.rowSpacing)
+                    ) {
+                        ForEach(ids, id: \.self) { id in
+                            tile(id, side: side, container: nil)
+                        }
+                    }
+                    .padding(.horizontal, CGFloat(metrics.horizontalInset))
+                    // The first/last icon shadow has breathing room: do not
+                    // draw a material rectangle over an abruptly clipped row.
+                    .padding(.top, 20)
+                    .padding(.bottom, 24)
+                    blankArea { dropAtGridEnd() }
+                        .frame(minHeight: 48, maxHeight: .infinity)
+                }
+                .frame(minHeight: proxy.size.height, alignment: .top)
+                .background(LCHomeBlankPress(
+                    perform: { startEditing() },
+                    tapped: { if editing { finishEditing() } },
+                    enabled: folderID == nil
+                ))
+            }
+            .lcNativeHomeScrollEdges(enabled: edgeFade)
+            .accessibilityIdentifier("lifecontainer.homeContinuousGrid")
         }
     }
-    private func dropAtPageEnd(_ index: Int, perPage: Int, folder: String?) {
+
+    private func dropAtGridEnd() {
         guard let source = draggedID else { return }
-        let items = folder.flatMap { id in layout.folders.first { $0.id == id }?.apps } ?? layout.rootItems(available)
+        var value = layout
+        value.moveItem(source, before: nil, available: available)
+        animate { save(value) }
+        commitDrag()
+    }
+
+    /// Existing folder pages use this helper; the root grid does not.
+    private func dropAtPageEnd(_ index: Int, perPage: Int, folder: String) {
+        guard let source = draggedID,
+              let items = layout.folders.first(where: { $0.id == folder })?.apps else { return }
         let destination = items.dropFirst((index + 1) * perPage).first
         var value = layout
         value.moveItem(source, before: destination, in: folder, available: available)
-        animate { save(value) }; commitDrag()
+        animate { save(value) }
+        commitDrag()
     }
     private func hover(source: String, target: String, center: Bool, container: String?) {
         guard source != target else { return }
@@ -573,7 +586,7 @@ struct LCHomeScreenView: View {
             }
         }.buttonStyle(.plain)
     }
-    private func pageEdge(_ direction: Int, count: Int, perPage: Int, folder: String? = nil) -> some View {
+    private func pageEdge(_ direction: Int, count: Int, perPage: Int, folder: String) -> some View {
         Color.clear.frame(width: 24).contentShape(Rectangle())
             .allowsHitTesting(draggedID != nil)
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {
@@ -582,19 +595,17 @@ struct LCHomeScreenView: View {
                     while !Task.isCancelled, draggedID != nil {
                         try? await Task.sleep(nanoseconds: 700_000_000)
                         guard !Task.isCancelled else { return }
-                        let current = folder == nil ? page : folderPage
-                        let next = min(max(current + direction, 0), count - 1)
-                        guard next != current else { return }
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) {
-                            if folder == nil { page = next } else { folderPage = next }
-                        }
+                        let next = min(max(folderPage + direction, 0), count - 1)
+                        guard next != folderPage else { return }
+                        withAnimation(homeAnimation) { folderPage = next }
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 }
             }, exit: { edgeTask?.cancel() }, finish: {
-                dropAtPageEnd(folder == nil ? page : folderPage, perPage: perPage, folder: folder)
+                dropAtPageEnd(folderPage, perPage: perPage, folder: folder)
             }))
     }
+
 }
 
 private struct LCHomeFolderFrames: PreferenceKey {
