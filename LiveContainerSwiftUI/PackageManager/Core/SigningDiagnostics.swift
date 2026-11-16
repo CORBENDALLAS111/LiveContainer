@@ -5,7 +5,7 @@ import ObjectiveC
 
 /// Separate files per process avoid interleaved writes between LC and embedded SideStore.
 enum SigningDiagnostics {
-    struct Entry: Codable, Identifiable {
+    struct Entry: Codable, Identifiable, Sendable {
         var id = UUID()
         var date = Date()
         let process: String
