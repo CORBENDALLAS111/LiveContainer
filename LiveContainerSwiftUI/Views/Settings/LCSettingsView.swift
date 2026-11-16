@@ -87,11 +87,6 @@ struct LCSettingsView: View {
             Form {
                 Section {
                     NavigationLink {
-                        LCAutomationSettingsView()
-                    } label: {
-                        Label("lcos.automation.title".loc, systemImage: "play.rectangle.on.rectangle")
-                    }
-                    NavigationLink {
                         LCDiagnosticsView()
                     } label: {
                         Label("lcos.logs.title".loc, systemImage: "waveform.path.ecg")
@@ -221,6 +216,11 @@ struct LCSettingsView: View {
                 
                 Section{
                     Toggle("lcos.home.enabled".loc, isOn: $homeScreenEnabled)
+                    NavigationLink {
+                        LCHomeAppearanceSettingsView()
+                    } label: {
+                        Label("lcos.home.appearance".loc, systemImage: "paintbrush.pointed")
+                    }
                     Toggle(isOn: $dynamicColors) {
                         Text("lc.settings.dynamicColors".loc)
                     }
@@ -731,5 +731,89 @@ struct LCSettingsView: View {
                 
             }
         }
+    }
+}
+
+private struct LCHomeAppearanceSettingsView: View {
+    @AppStorage("LCOSHomeIconScale", store: LCUtils.appGroupUserDefault) private var iconScale = 1.0
+    @AppStorage("LCOSHomeShowLabels", store: LCUtils.appGroupUserDefault) private var showLabels = true
+    @AppStorage("LCOSHomeShowPageDots", store: LCUtils.appGroupUserDefault) private var showPageDots = true
+    @AppStorage("LCOSHomeEdgeFade", store: LCUtils.appGroupUserDefault) private var edgeFade = true
+    @AppStorage("LCOSHomeMotionMode", store: LCUtils.appGroupUserDefault) private var motionMode = "standard"
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 20) {
+                    previewIcon("music.note", "Music", tint: .green)
+                    previewIcon("book.closed", "Books", tint: .orange)
+                    previewIcon("gamecontroller", "Games", tint: .purple)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+            } header: {
+                Text("lcos.home.preview".loc)
+            }
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("lcos.home.iconSize".loc)
+                        Spacer()
+                        Text("\(Int(iconScale * 100))%")
+                            .monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    Slider(value: $iconScale, in: 0.85...1.1, step: 0.05)
+                        .accessibilityLabel("lcos.home.iconSize".loc)
+                }
+                Toggle("lcos.home.labels".loc, isOn: $showLabels)
+                Toggle("lcos.home.pageDots".loc, isOn: $showPageDots)
+                Toggle("lcos.home.edgeFade".loc, isOn: $edgeFade)
+            } header: {
+                Text("lcos.home.appearance".loc)
+            }
+            Section {
+                Picker("lcos.home.motion".loc, selection: $motionMode) {
+                    Text("lcos.home.motionStandard".loc).tag("standard")
+                    Text("lcos.home.motionGentle".loc).tag("gentle")
+                    Text("lcos.home.motionOff".loc).tag("off")
+                }
+                .pickerStyle(.menu)
+                if reduceMotion {
+                    Label("lcos.home.systemReducedMotion".loc, systemImage: "accessibility")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("lcos.home.motionHelp".loc)
+            }
+            Section {
+                Button("lcos.home.restoreDefaults".loc) {
+                    iconScale = 1.0
+                    showLabels = true
+                    showPageDots = true
+                    edgeFade = true
+                    motionMode = "standard"
+                }
+            }
+        }
+        .navigationTitle("lcos.home.appearance".loc)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func previewIcon(_ symbol: String, _ title: String, tint: Color) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 62 * iconScale, height: 62 * iconScale)
+                .background(tint, in: RoundedRectangle(cornerRadius: 15))
+                .accessibilityHidden(true)
+            if showLabels {
+                Text(title).font(.caption2).lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
