@@ -114,44 +114,19 @@ struct LCHomeScreenView: View {
             ZStack {
                 (scheme == .dark ? Color.black : Color.white).ignoresSafeArea()
                     .contentShape(Rectangle()).onLongPressGesture { startEditing() }
-                VStack(spacing: 0) {
-                    if apps.isEmpty { emptyState }
-                    else if ids.isEmpty {
-                        Text("lcos.home.noResults".loc)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        continuousGrid(ids, columns: columns, side: side, metrics: metrics)
-                    }
-                }
-                // Pinned controls belong to the scroll view's safe-area layout,
-                // not painted over its first/last icon row with a custom material.
-                // SwiftUI can now draw the native soft scroll-edge transition
-                // between these controls and the vertically scrolling grid.
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    VStack(spacing: 8) {
-                        header
-                        if searching { searchField }
-                        if importing {
-                            ProgressView(value: Double(installProgress))
-                                .padding(.horizontal, 24)
+                homeChrome(
+                    VStack(spacing: 0) {
+                        if apps.isEmpty {
+                            emptyState
+                        } else if ids.isEmpty {
+                            Text("lcos.home.noResults".loc)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            continuousGrid(ids, columns: columns, side: side, metrics: metrics)
                         }
                     }
-                    .padding(.bottom, 8)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if !searching {
-                        Button { animate { searching = true }; searchFocused = true } label: {
-                            Label("lcos.home.search".loc, systemImage: "magnifyingglass")
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .lcGlass(in: Capsule(), interactive: true)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.bottom, 12)
-                    }
-                }
+                )
                 .frame(maxWidth: .infinity)
                     .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
                     .blur(radius: motionEnabled ? 8 * folderProgress : 0)
@@ -238,6 +213,48 @@ struct LCHomeScreenView: View {
             #if DEBUG
             previewMotionTask?.cancel()
             #endif
+        }
+    }
+
+    /// iOS 26's safeAreaBar extends the native scroll edge effect through
+    /// pinned controls. The older safeAreaInset path remains functional without
+    /// adding a custom blur/gradient rectangle over the icon grid.
+    @ViewBuilder
+    private func homeChrome<Content: View>(_ content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .safeAreaBar(edge: .top, spacing: 0) { pinnedHeader }
+                .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+        } else {
+            content
+                .safeAreaInset(edge: .top, spacing: 0) { pinnedHeader }
+                .safeAreaInset(edge: .bottom, spacing: 0) { pinnedSearch }
+        }
+    }
+
+    private var pinnedHeader: some View {
+        VStack(spacing: 8) {
+            header
+            if searching { searchField }
+            if importing {
+                ProgressView(value: Double(installProgress))
+                    .padding(.horizontal, 24)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder private var pinnedSearch: some View {
+        if !searching {
+            Button { animate { searching = true }; searchFocused = true } label: {
+                Label("lcos.home.search".loc, systemImage: "magnifyingglass")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .lcGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 12)
         }
     }
 
