@@ -322,8 +322,14 @@ struct LCHomeScreenView: View {
     private var searchField: some View {
         HStack {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("lcos.home.search".loc, text: $query).textInputAutocapitalization(.never)
-                .disableAutocorrection(true).focused($searchFocused)
+            TextField("lcos.home.search".loc, text: $query)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .focused($searchFocused)
+                // The pinned search bar enters the hierarchy after the
+                // initial tap. Focus it on insertion, not in the same
+                // transaction as the button that creates the TextField.
+                .onAppear { searchFocused = true }
             Button { query = ""; animate { searching = false }; searchFocused = false } label: {
                 Image(systemName: "xmark.circle.fill")
                     .frame(width: 44, height: 44)
