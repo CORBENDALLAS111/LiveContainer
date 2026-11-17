@@ -8,7 +8,7 @@ on:
         options: [component, full, mini]
         default: component
   push:
-    branches: ['codex/**']
+    branches: ['codex/**', 'feature/ios-native-continuous-app-grid']
     paths:
       - 'LiveContainerSwiftUI/HomeScreen/**'
       - 'LiveContainerSwiftUI/Views/AppList/**'
