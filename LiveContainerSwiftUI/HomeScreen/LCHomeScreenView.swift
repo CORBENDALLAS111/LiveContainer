@@ -58,14 +58,25 @@ struct LCHomeScreenView: View {
 
     private var available: [String] { apps.map(identifier) }
     @State private var cachedLayout = LCHomeLayout()
+    // Lookup is constant-time while scrolling a large guest library. Retain
+    // the real registry models, never synthesize a duplicate app instance.
+    @State private var modelsByIdentifier: [String: LCAppModel] = [:]
     private var layout: LCHomeLayout { cachedLayout }
+    private func refreshAppIndex() {
+        var lookup: [String: LCAppModel] = [:]
+        lookup.reserveCapacity(apps.count)
+        for app in apps { lookup[identifier(app)] = app }
+        modelsByIdentifier = lookup
+    }
     private func refreshLayout() {
         guard let data = layoutJSON.data(using: .utf8), let value = try? JSONDecoder().decode(LCHomeLayout.self, from: data),
               (1...2).contains(value.version) else { cachedLayout = LCHomeLayout().reconciled(available); return }
         cachedLayout = value.reconciled(available)
     }
     private func identifier(_ app: LCAppModel) -> String { "\(app.bundleIdentifier):\(app.appInfo.relativeBundlePath ?? app.bundleIdentifier)" }
-    private func model(_ id: String) -> LCAppModel? { apps.first { identifier($0) == id } }
+    private func model(_ id: String) -> LCAppModel? {
+        modelsByIdentifier[id] ?? apps.first { identifier($0) == id }
+    }
     private func save(_ value: LCHomeLayout) {
         guard let data = try? JSONEncoder().encode(value), let string = String(data: data, encoding: .utf8) else { return }
         cachedLayout = value.reconciled(available)
@@ -169,7 +180,10 @@ struct LCHomeScreenView: View {
             Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); folderID = nil; folderProgress = 0 }
         }
         .onChange(of: layoutJSON) { _ in refreshLayout() }
-        .onChange(of: available) { _ in refreshLayout() }
+        .onChange(of: available) { _ in
+            refreshAppIndex()
+            refreshLayout()
+        }
         .onChange(of: layout.folders) { folders in
             guard let id = folderID else { return }
             guard let folder = folders.first(where: { $0.id == id }) else {
@@ -178,6 +192,7 @@ struct LCHomeScreenView: View {
             folderPage = min(folderPage, max(0, (folder.apps.count - 1) / folderCapacity))
         }
         .onAppear {
+            refreshAppIndex()
             refreshLayout()
             NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: editing)
             #if DEBUG
