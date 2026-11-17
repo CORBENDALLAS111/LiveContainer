@@ -25,21 +25,19 @@ struct LCAdvancedInstallView: View {
     private var ready: Bool { app != nil && !working && !name.isEmpty && !identifier.isEmpty }
     var body: some View {
         NavigationView {
-            Form {
-                if let app {
-                    appSummary(app)
-                    appOptions(app)
-                    identitySection
-                    injectionSection
-                } else {
-                    chooseIPASection
+            installForm(
+                Form {
+                    if let app {
+                        appSummary(app)
+                        appOptions(app)
+                        identitySection
+                        injectionSection
+                    } else {
+                        chooseIPASection
+                    }
+                    if working { progressSection }
                 }
-                if working { progressSection }
-            }
-            .lcSoftScrollEdges()
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if app != nil { installBar }
-            }
+            )
             .navigationTitle("lcos.install.advanced".installLoc)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -92,6 +90,22 @@ struct LCAdvancedInstallView: View {
             Button("lc.common.ok".installLoc) { failure = nil }
         } message: { Text(failure ?? "") }
     }
+    /// Let iOS 26 render the pinned action and the Form scroll boundary as
+    /// one native bar, instead of compositing another full-width material slab
+    /// on top of the navigation and tab-bar materials.
+    @ViewBuilder
+    private func installForm<Content: View>(_ form: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            form.safeAreaBar(edge: .bottom, spacing: 0) {
+                if app != nil { installBar }
+            }
+        } else {
+            form.safeAreaInset(edge: .bottom, spacing: 0) {
+                if app != nil { installBar.background(.regularMaterial) }
+            }
+        }
+    }
+
     private func cancel() {
         if !retained, let workspace {
             try? FileManager.default.removeItem(at: workspace)
@@ -309,7 +323,6 @@ struct LCAdvancedInstallView: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background(.regularMaterial)
     }
 
     private func load(_ source: URL) async {
