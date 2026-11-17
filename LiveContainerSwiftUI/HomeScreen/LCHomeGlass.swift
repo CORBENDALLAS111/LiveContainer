@@ -11,7 +11,7 @@ extension View {
     @ViewBuilder func lcNativeHomeScrollEdges(enabled: Bool) -> some View {
         if #available(iOS 26.0, *) {
             if enabled {
-                self.scrollEdgeEffectStyle(.soft, for: .all)
+                self.scrollEdgeEffectStyle(.soft, for: .vertical)
             } else {
                 self.scrollEdgeEffectHidden(true, for: .all)
             }
