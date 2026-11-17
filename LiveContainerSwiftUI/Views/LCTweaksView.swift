@@ -76,8 +76,8 @@ struct LCTweakFolderView : View {
             if isRoot && UIDevice.current.userInterfaceIdiom == .pad &&
                 geometry.size.width >= 900 {
                 wideRoot(availableWidth: geometry.size.width)
-                    .navigationTitle("")
-                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationTitle("lc.tabView.tweaks".loc)
+                    .navigationBarTitleDisplayMode(.large)
             } else {
                 List {
                     if isRoot { marketplaceLinks }
@@ -170,10 +170,6 @@ struct LCTweakFolderView : View {
     private func wideRoot(availableWidth: CGFloat) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("lc.tabView.tweaks".loc)
-                    .font(.largeTitle.weight(.bold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                 HStack(alignment: .top, spacing: 20) {
                     wideMarketplaceLinks
                         .frame(width: min(392, (availableWidth - 68) * 0.39))
