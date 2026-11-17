@@ -112,7 +112,11 @@ struct LCHomeScreenView: View {
                 return app.displayName.localizedCaseInsensitiveContains(query) || app.bundleIdentifier.localizedCaseInsensitiveContains(query)
             }
             ZStack {
-                (scheme == .dark ? Color.black : Color.white).ignoresSafeArea()
+                // Keep the view opaque inside its own safe area, but do not
+                // paint a full-screen rectangle underneath the floating
+                // system tab bar. iOS needs that region for its own soft
+                // scroll-edge blur and Liquid Glass compositing.
+                Color(uiColor: .systemBackground)
                     .contentShape(Rectangle()).onLongPressGesture { startEditing() }
                 homeChrome(
                     VStack(spacing: 0) {
