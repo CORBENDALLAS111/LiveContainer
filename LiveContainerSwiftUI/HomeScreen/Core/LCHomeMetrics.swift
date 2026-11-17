@@ -28,8 +28,18 @@ struct LCHomeMetrics: Equatable {
         horizontalInset = tablet ? max(20, min(64, width * 0.055)) : 20
         let cellWidth = max(1, (width - 2 * horizontalInset) / Double(columns))
         iconSide = max(42, min(accessibility ? 72 : (tablet ? 68 : 62), cellWidth - 18))
-        // Six rows remain scrollable on small displays and with large accessibility text.
-        rowSpacing = max(12, min(38, (height - Double(rows) * (iconSide + 30) - 20) / Double(max(1, rows - 1))))
+        // The root home screen is one continuous vertical grid, not a page
+        // of rows that must fill the viewport. Keep spacing stable when window
+        // height changes (rotation, keyboard and Stage Manager resizing).
+        // Accessibility text is given more room without stretching the grid
+        // across a tall display.
+        if accessibility {
+            rowSpacing = 36
+        } else if landscape && height < 500 {
+            rowSpacing = 18
+        } else {
+            rowSpacing = tablet ? 28 : 30
+        }
     }
 }
 
