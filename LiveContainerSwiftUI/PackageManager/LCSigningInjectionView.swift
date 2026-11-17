@@ -78,7 +78,6 @@ struct LCSigningInjectionView: View {
             }
             if working { ProgressView() }
         }
-        .lcSoftScrollEdges()
         .navigationTitle("lcos.signing.title".signingLoc)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
