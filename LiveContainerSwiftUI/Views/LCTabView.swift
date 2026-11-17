@@ -39,7 +39,8 @@ struct LCTabView: View {
 
     var body: some View {
         tabContent
-        .lcSoftScrollEdges()
+        // Do not force an edge blur on every nested Form/List or the tab bar.
+        // Let UIKit/SwiftUI render each navigation and tab bar natively.
         .overlay(alignment: .topTrailing) { floatingHomeActions }
         .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEditingChanged)) { note in
             homeScreenEditing = note.object as? Bool ?? false

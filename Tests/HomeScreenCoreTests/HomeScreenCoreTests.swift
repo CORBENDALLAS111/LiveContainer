@@ -33,6 +33,18 @@ final class HomeScreenCoreTests: XCTestCase {
             XCTAssertGreaterThan(value.capacity, 0)
         }
     }
+    func testLargeHomeInventoryIsNeverTruncatedToPageCapacity() {
+        let inventory = (0..<240).map { "org.example.guest\($0):Guest\($0).app" }
+        let metrics = LCHomeMetrics(width: 402, height: 680, tablet: false, mini: false)
+        XCTAssertGreaterThan(inventory.count, metrics.capacity)
+        // The root home grid renders rootItems in one LazyVGrid. It must never
+        // truncate to metrics.capacity (the former horizontal page size).
+        let layout = LCHomeLayout()
+        let items = layout.rootItems(inventory)
+        XCTAssertEqual(items.count, 240)
+        XCTAssertEqual(items, inventory)
+    }
+
     func testV1MigrationReturnsDockedAppsToGrid() throws {
         let old = Data(#"{"version":1,"order":["b","a"],"dock":["c"]}"#.utf8)
         let migrated = try JSONDecoder().decode(LCHomeLayout.self, from: old).reconciled(["a", "b", "c"])

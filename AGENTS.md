@@ -1,5 +1,7 @@
 # LifeContainer+ — Native Apple UI Rules
 
+For all iPhone / iOS 26+ visual fixes, invoke the project skill **[iphone-native-ui-review](.agents/skills/iphone-native-ui-review/SKILL.md)** and read **[CODEX_IPHONE_UI_AUDIT.md](CODEX_IPHONE_UI_AUDIT.md)** and its exact links to Apple UI Review, Liquid Glass, SwiftUI Layout, iOS Navigation, Animation, Accessibility, and Simulator QA skills. The November 2026 iPhone screenshots are a regression baseline: hard horizontal scroll blur bands and root grid pagination must not return. A green Xcode build is insufficient to mark UI defects fixed.
+
 This repository is an **iOS/iPadOS app**, implemented in **Swift, SwiftUI and existing UIKit bridges**. Every UI change must look and behave like a first-party Apple app. Native Apple Human Interface Guidelines and the project's existing appearance take precedence over generic web/mobile design advice.
 
 ## External design references (guidance, not runtime dependencies)

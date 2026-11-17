@@ -78,12 +78,15 @@ struct PreviewHost: App {
         }
     }
     private let apps: [LCAppModel] = {
-        if UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") {
-            // Native UI tests begin in normal mode and enter editing through real gestures.
+        if UserDefaults.standard.bool(forKey: "LCOSHomeGestureTests") ||
+           UserDefaults.standard.bool(forKey: "LCOSHomeLongGridTests") {
+            // Native UI tests use real guest model and Home views; long-grid
+            // cases generate enough apps to expose clipping/pagination bugs.
             let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Applications")
             try? FileManager.default.removeItem(at: directory)
-            for index in 0..<12 {
-                let url = directory.appendingPathComponent("Gesture\(index).app")
+            let count = UserDefaults.standard.bool(forKey: "LCOSHomeLongGridTests") ? 128 : 12
+            for index in 0..<count {
+                let url = directory.appendingPathComponent(String(format: "Gesture%03d.app", index))
                 try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
                 let info = ["CFBundleIdentifier": "org.example.gesture.\(index)", "CFBundleDisplayName": "App \(index)"]
                 try? PropertyListSerialization.data(fromPropertyList: info, format: .binary, options: 0).write(to: url.appendingPathComponent("Info.plist"))

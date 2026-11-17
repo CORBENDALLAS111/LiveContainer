@@ -8,7 +8,7 @@ on:
         options: [component, full, mini]
         default: component
   push:
-    branches: ['codex/**']
+    branches: ['codex/**', 'feature/ios-native-continuous-app-grid']
     paths:
       - 'LiveContainerSwiftUI/HomeScreen/**'
       - 'LiveContainerSwiftUI/Views/AppList/**'
@@ -82,3 +82,28 @@ jobs:
             mini-editing.log
             artifacts/home-editing-tests/MiniEditing.xcresult
             artifacts/home-editing-tests/attachments
+
+  iphone-continuous:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - name: Install native test project generator
+        run: command -v xcodegen || brew install xcodegen
+      - name: Exercise 128-app continuous scroll on a real iPhone Simulator
+        env:
+          LCOS_TEST_DEVICE: iphone
+        run: |
+          set -o pipefail
+          python3 scripts/test_home_editing.py 2>&1 | tee iphone-continuous.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iphone-continuous-tests
+          path: |
+            iphone-continuous.log
+            artifacts/home-editing-tests/iPhoneContinuous.xcresult
+            artifacts/home-editing-tests/attachments-iphone

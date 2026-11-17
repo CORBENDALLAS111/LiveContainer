@@ -1,5 +1,6 @@
 """Native XCUITest regression: mini blank/gap holds, badges, Done and context menus."""
 import json
+import os
 import pathlib
 import subprocess
 
@@ -28,21 +29,30 @@ devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'device
 sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version'], text=True).strip()
 runtimes = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'runtimes', '-j']))['runtimes']
 runtime = next(r['identifier'] for r in runtimes if r['version'] == sdk and r['isAvailable'])
-mini = next(d for d in devices[runtime] if 'iPad mini' in d['name'])
-print('Testing on', mini['name'], runtime, flush=True)
+requested = os.environ.get('LCOS_TEST_DEVICE', 'mini')
+if requested not in ('mini', 'iphone'):
+    raise ValueError('LCOS_TEST_DEVICE must be mini or iphone')
+device_name = 'iPad mini' if requested == 'mini' else 'iPhone'
+device = next(d for d in devices[runtime] if device_name in d['name'])
+report_name = 'MiniEditing' if requested == 'mini' else 'iPhoneContinuous'
+print('Testing on', device['name'], runtime, flush=True)
 # Warm the selected device before XCTest installs its runner. Cold automatic
 # boot can stall before the first test on shared macOS runners.
-if mini['state'] != 'Booted':
-    subprocess.run(['xcrun', 'simctl', 'boot', mini['udid']], check=True, timeout=120)
-subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', mini['udid']], check=True, timeout=60)
-subprocess.run(['xcrun', 'simctl', 'bootstatus', mini['udid'], '-b'], check=True, timeout=300)
+if device['state'] != 'Booted':
+    subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True, timeout=120)
+subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', device['udid']], check=True, timeout=60)
+subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True, timeout=300)
 try:
-    subprocess.run(['xcodebuild', '-project', str(out / 'HomeEditing.xcodeproj'), '-scheme', 'HomeEditing',
-                '-destination', 'platform=iOS Simulator,id=' + mini['udid'], '-parallel-testing-enabled', 'NO',
-                '-resultBundlePath', str(out / 'MiniEditing.xcresult'), 'test'], check=True, timeout=900)
+    command = ['xcodebuild', '-project', str(out / 'HomeEditing.xcodeproj'), '-scheme', 'HomeEditing',
+               '-destination', 'platform=iOS Simulator,id=' + device['udid'], '-parallel-testing-enabled', 'NO',
+               '-resultBundlePath', str(out / (report_name + '.xcresult')), 'test']
+    if requested == 'iphone':
+        command.append('-only-testing:HomeEditingUITests/HomeEditingUITests/testOneContinuousGridScrollsFromFirstTo128thApp')
+    subprocess.run(command, check=True, timeout=900)
 
 finally:
-    result = out / 'MiniEditing.xcresult'
+    result = out / (report_name + '.xcresult')
     if result.exists():
+        attachment_dir = 'attachments' if requested == 'mini' else 'attachments-iphone'
         subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result),
-                        '--output-path', str(out / 'attachments')], timeout=90)
+                        '--output-path', str(out / attachment_dir)], timeout=90)

@@ -1,6 +1,47 @@
 import XCTest
 
 final class HomeEditingUITests: XCTestCase {
+    func testOneContinuousGridScrollsFromFirstTo128thApp() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-LCOSHomeLongGridTests", "YES",
+            "-LCOSPreviewEnabled", "NO",
+            "-LCOSHomeGestureTests", "NO",
+            "-AppleLanguages", "(en)"
+        ]
+        app.launch()
+
+        let grid = app.scrollViews["lifecontainer.homeContinuousGrid"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 20))
+        let first = app.buttons["lifecontainer.appIcon.org.example.gesture.0"]
+        let last = app.buttons["lifecontainer.appIcon.org.example.gesture.127"]
+
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        XCTAssertTrue(first.isHittable)
+        XCTAssertFalse(last.isHittable)
+
+        let top = XCTAttachment(screenshot: app.screenshot())
+        top.name = "home-continuous-grid-top"; top.lifetime = .keepAlways; add(top)
+
+        // A root grid must continue vertically, not switch pages horizontally.
+        for _ in 0..<24 {
+            if last.exists && last.isHittable { break }
+            grid.swipeUp()
+        }
+        XCTAssertTrue(last.exists && last.isHittable,
+                      "The last installed app must be reachable in the same vertical grid")
+        let bottom = XCTAttachment(screenshot: app.screenshot())
+        bottom.name = "home-continuous-grid-bottom"; bottom.lifetime = .keepAlways; add(bottom)
+
+        for _ in 0..<24 {
+            if first.exists && first.isHittable { break }
+            grid.swipeDown()
+        }
+        XCTAssertTrue(first.exists && first.isHittable,
+                      "The same grid must scroll back to the initial app")
+    }
+
     func testBlankSpaceAndGridGapEnterEditing() {
         continueAfterFailure = false
         let app = XCUIApplication()

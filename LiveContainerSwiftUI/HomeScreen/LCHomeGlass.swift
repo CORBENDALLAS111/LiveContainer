@@ -5,8 +5,19 @@ extension View {
         if #available(iOS 16.0, *) { self.menuOrder(.fixed) }
         else { self }
     }
-    func lcHomeScrollVeil() -> some View {
-        modifier(LCHomeScrollVeil())
+    /// Use the real iOS/iPadOS 26 scroll-edge rendering, not custom
+    /// ultraThinMaterial rectangles that create a visible dark/bright stripe.
+    /// Earlier systems keep native ScrollView clipping/scroll appearance.
+    @ViewBuilder func lcNativeHomeScrollEdges(enabled: Bool) -> some View {
+        if #available(iOS 26.0, *) {
+            if enabled {
+                self.scrollEdgeEffectStyle(.soft, for: .vertical)
+            } else {
+                self.scrollEdgeEffectHidden(true, for: .all)
+            }
+        } else {
+            self
+        }
     }
     @ViewBuilder func lcSoftScrollEdges() -> some View {
         if #available(iOS 26.0, *) { self.scrollEdgeEffectStyle(.soft, for: .all) }
@@ -18,54 +29,6 @@ extension View {
         } else {
             self.background(.regularMaterial, in: shape)
         }
-    }
-}
-
-/// Optional gradient veil. It softens the scrolling edge without clipping
-/// icon artwork or letting overlay materials intercept touches.
-struct LCHomeOptionalVeil: ViewModifier {
-    let enabled: Bool
-    @ViewBuilder func body(content: Content) -> some View {
-        if enabled { content.lcHomeScrollVeil() }
-        else { content }
-    }
-}
-
-private struct LCHomeScrollVeil: ViewModifier {
-    @State private var scrolled = false
-    private var visible: Bool {
-        if #available(iOS 18.0, *) { return scrolled }
-        return true
-    }
-    func body(content: Content) -> some View {
-        Group {
-            if #available(iOS 18.0, *) {
-                content.scrollBounceBehavior(.always, axes: .vertical)
-                    .onScrollGeometryChange(for: Bool.self) { geometry in
-                        geometry.contentOffset.y + geometry.contentInsets.top > 0.5
-                    } action: { _, value in scrolled = value }
-            } else if #available(iOS 16.4, *) {
-                content.scrollBounceBehavior(.always, axes: .vertical)
-            } else { content }
-        }.overlay(alignment: .top) {
-            Rectangle().fill(.ultraThinMaterial).frame(height: 32)
-                .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),
-                    .init(color: .black.opacity(0.4), location: 0.55), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-                .opacity(visible ? 1 : 0).animation(.easeOut(duration: 0.12), value: visible)
-                .allowsHitTesting(false).accessibilityHidden(true)
-        }.overlay(alignment: .bottom) {
-            Rectangle().fill(.ultraThinMaterial).frame(height: 22)
-                .mask(LinearGradient(colors: [.clear, .black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom))
-                .opacity(visible ? 1 : 0).animation(.easeOut(duration: 0.12), value: visible)
-                .allowsHitTesting(false).accessibilityHidden(true)
-        }
-    }
-}
-
-struct LCHomeCleanScrollEdges: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) { content.scrollEdgeEffectHidden(true, for: .all) }
-        else { content }
     }
 }
 

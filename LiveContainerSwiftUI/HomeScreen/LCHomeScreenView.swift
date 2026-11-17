@@ -18,10 +18,9 @@ struct LCHomeScreenView: View {
     @AppStorage("LCOSHomeLayout", store: LCUtils.appGroupUserDefault) private var layoutJSON = ""
     @AppStorage("LCOSHomeIconScale", store: LCUtils.appGroupUserDefault) private var iconScale = 1.0
     @AppStorage("LCOSHomeShowLabels", store: LCUtils.appGroupUserDefault) private var showLabels = true
-    @AppStorage("LCOSHomeShowPageDots", store: LCUtils.appGroupUserDefault) private var showPageDots = true
+    @AppStorage("LCOSHomeScrollIndicator", store: LCUtils.appGroupUserDefault) private var showScrollIndicator = true
     @AppStorage("LCOSHomeEdgeFade", store: LCUtils.appGroupUserDefault) private var edgeFade = true
     @AppStorage("LCOSHomeMotionMode", store: LCUtils.appGroupUserDefault) private var motionMode = "standard"
-    @State private var page = 0
     @State private var query = ""
     @State private var searching = false
     @State private var editing = false
@@ -59,14 +58,25 @@ struct LCHomeScreenView: View {
 
     private var available: [String] { apps.map(identifier) }
     @State private var cachedLayout = LCHomeLayout()
+    // Lookup is constant-time while scrolling a large guest library. Retain
+    // the real registry models, never synthesize a duplicate app instance.
+    @State private var modelsByIdentifier: [String: LCAppModel] = [:]
     private var layout: LCHomeLayout { cachedLayout }
+    private func refreshAppIndex() {
+        var lookup: [String: LCAppModel] = [:]
+        lookup.reserveCapacity(apps.count)
+        for app in apps { lookup[identifier(app)] = app }
+        modelsByIdentifier = lookup
+    }
     private func refreshLayout() {
         guard let data = layoutJSON.data(using: .utf8), let value = try? JSONDecoder().decode(LCHomeLayout.self, from: data),
               (1...2).contains(value.version) else { cachedLayout = LCHomeLayout().reconciled(available); return }
         cachedLayout = value.reconciled(available)
     }
     private func identifier(_ app: LCAppModel) -> String { "\(app.bundleIdentifier):\(app.appInfo.relativeBundlePath ?? app.bundleIdentifier)" }
-    private func model(_ id: String) -> LCAppModel? { apps.first { identifier($0) == id } }
+    private func model(_ id: String) -> LCAppModel? {
+        modelsByIdentifier[id] ?? apps.first { identifier($0) == id }
+    }
     private func save(_ value: LCHomeLayout) {
         guard let data = try? JSONEncoder().encode(value), let string = String(data: data, encoding: .utf8) else { return }
         cachedLayout = value.reconciled(available)
@@ -87,61 +97,7 @@ struct LCHomeScreenView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // The iPadOS top tab row owns the install/SideStore/menu controls.
-            // Do not reserve their former second header row in the grid geometry.
-            let reservedHeight: CGFloat = usesTopTabActions
-                ? (searching ? 154 : 110) : (searching ? 206 : 162)
-            let metrics = LCHomeMetrics(width: geometry.size.width, height: max(0, geometry.size.height - reservedHeight),
-                tablet: UIDevice.current.userInterfaceIdiom == .pad,
-                mini: LCHomeMetrics.isMini(model: Self.deviceModel, shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)),
-                accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
-            let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
-            let columns = metrics.columns
-            let perPage = metrics.capacity
-            let ids = query.isEmpty ? layout.rootItems(available) : layout.ordered(available).filter { id in
-                guard let app = model(id) else { return false }
-                return app.displayName.localizedCaseInsensitiveContains(query) || app.bundleIdentifier.localizedCaseInsensitiveContains(query)
-            }
-            let count = max(1, (ids.count + perPage - 1) / perPage)
-            ZStack {
-                (scheme == .dark ? Color.black : Color.white).ignoresSafeArea()
-                    .contentShape(Rectangle()).onLongPressGesture { startEditing() }
-                VStack(spacing: 8) {
-                    header
-                    if searching { searchField }
-                    if importing { ProgressView(value: Double(installProgress)).padding(.horizontal, 24) }
-                    if apps.isEmpty { emptyState }
-                    else if ids.isEmpty {
-                        Text("lcos.home.noResults".loc).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        TabView(selection: $page) {
-                            ForEach(0..<count, id: \.self) { index in
-                                desktopPage(Array(ids.dropFirst(index * perPage).prefix(perPage)),
-                                            index: index, columns: columns, side: side, perPage: perPage, metrics: metrics).tag(index)
-                            }
-                        }.tabViewStyle(.page(indexDisplayMode: .never))
-                        .overlay(alignment: .leading) { pageEdge(-1, count: count, perPage: perPage) }
-                        .overlay(alignment: .trailing) { pageEdge(1, count: count, perPage: perPage) }
-                    }
-                    if showPageDots && count > 1 { pageDots(count, selection: $page) }
-                    if !searching {
-                        Button { animate { searching = true }; searchFocused = true } label: {
-                            Label("lcos.home.search".loc, systemImage: "magnifyingglass").font(.caption.weight(.medium))
-                                .padding(.horizontal, 16).padding(.vertical, 10).lcGlass(in: Capsule(), interactive: true)
-                        }.buttonStyle(.plain).padding(.bottom, 12)
-                    }
-                }.frame(maxWidth: .infinity)
-                    .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
-                    .blur(radius: motionEnabled ? 8 * folderProgress : 0)
-                    .allowsHitTesting(folderID == nil)
-                    .accessibilityHidden(folderID != nil)
-                if let id = folderID, let folder = layout.folders.first(where: { $0.id == id }) {
-                    folderOverlay(folder, frame: geometry.frame(in: .global), side: side).zIndex(2)
-                }
-            }
-            .onPreferenceChange(LCHomeFolderFrames.self) { if folderID == nil { folderFrames = $0 } }
-            .onChange(of: count) { page = min(page, $0 - 1) }
-            .onChange(of: query) { _ in page = 0 }
+            homeCanvas(geometry)
         }
         .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEdit)) { _ in
             guard gridEnabled else { return }
@@ -157,10 +113,13 @@ struct LCHomeScreenView: View {
             NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: isEditing)
         }
         .confirmationDialog("lcos.home.reset".loc, isPresented: $resetConfirmation) {
-            Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); page = 0; folderID = nil; folderProgress = 0 }
+            Button("lcos.home.reset".loc, role: .destructive) { save(LCHomeLayout()); folderID = nil; folderProgress = 0 }
         }
         .onChange(of: layoutJSON) { _ in refreshLayout() }
-        .onChange(of: available) { _ in refreshLayout() }
+        .onChange(of: available) { _ in
+            refreshAppIndex()
+            refreshLayout()
+        }
         .onChange(of: layout.folders) { folders in
             guard let id = folderID else { return }
             guard let folder = folders.first(where: { $0.id == id }) else {
@@ -169,6 +128,7 @@ struct LCHomeScreenView: View {
             folderPage = min(folderPage, max(0, (folder.apps.count - 1) / folderCapacity))
         }
         .onAppear {
+            refreshAppIndex()
             refreshLayout()
             NotificationCenter.default.post(name: .lcosTopBarEditingChanged, object: editing)
             #if DEBUG
@@ -179,7 +139,6 @@ struct LCHomeScreenView: View {
                 if let data = try? Data(contentsOf: url),
                    let values = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
                    let json = values["LCOSHomeLayout"] as? String { layoutJSON = json }
-                page = max(0, UserDefaults.standard.integer(forKey: "LCOSPreviewPage"))
                 if let id = UserDefaults.standard.string(forKey: "LCOSPreviewFolder"),
                    let folder = layout.folders.first(where: { $0.id == id }) { folderID = id; folderName = folder.name }
                 if UserDefaults.standard.bool(forKey: "LCOSPreviewMotion"), let folder = layout.folders.first {
@@ -205,10 +164,6 @@ struct LCHomeScreenView: View {
                         closeFolder()
                         try? await Task.sleep(nanoseconds: 1_000_000_000)
                         guard !Task.isCancelled else { return }
-                        withAnimation(.easeInOut(duration: 0.32)) { page = 1 }
-                        try? await Task.sleep(nanoseconds: 1_200_000_000)
-                        guard !Task.isCancelled else { return }
-                        withAnimation(.easeInOut(duration: 0.32)) { page = 0 }
                     }
                 }
             }
@@ -222,6 +177,138 @@ struct LCHomeScreenView: View {
         }
     }
 
+    /// Isolate the grid layout from the event/notification modifiers. In
+    /// addition to simpler ownership, this avoids SwiftUI's simulator
+    /// compiler timeout when type-checking an oversized GeometryReader body.
+    private func homeCanvas(_ geometry: GeometryProxy) -> some View {
+        let reservedHeight: CGFloat = usesTopTabActions
+            ? (searching ? 154 : 110) : (searching ? 206 : 162)
+        let metrics = LCHomeMetrics(
+            width: geometry.size.width,
+            height: max(0, geometry.size.height - reservedHeight),
+            tablet: UIDevice.current.userInterfaceIdiom == .pad,
+            mini: LCHomeMetrics.isMini(
+                model: Self.deviceModel,
+                shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+            ),
+            accessibility: sizeCategory.isAccessibilityCategory,
+            isLandscape: geometry.size.width > geometry.size.height
+        )
+        let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
+        let ids = query.isEmpty
+            ? layout.rootItems(available)
+            : layout.ordered(available).filter { id in
+                guard let app = model(id) else { return false }
+                return app.displayName.localizedCaseInsensitiveContains(query) ||
+                    app.bundleIdentifier.localizedCaseInsensitiveContains(query)
+            }
+
+        return ZStack {
+            // The system owns the region under the floating tab bar. Do
+            // not cover it with a full-screen opaque background rectangle.
+            Color(uiColor: .systemBackground)
+                .contentShape(Rectangle())
+                .onLongPressGesture { startEditing() }
+
+            homeChrome(homeGridItems(ids, columns: metrics.columns, side: side, metrics: metrics))
+                .frame(maxWidth: .infinity)
+                .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
+                .blur(radius: motionEnabled ? 8 * folderProgress : 0)
+                .allowsHitTesting(folderID == nil)
+                .accessibilityHidden(folderID != nil)
+
+            if let id = folderID,
+               let folder = layout.folders.first(where: { $0.id == id }) {
+                folderOverlay(folder, frame: geometry.frame(in: .global), side: side)
+                    .zIndex(2)
+            }
+        }
+        .onPreferenceChange(LCHomeFolderFrames.self) {
+            if folderID == nil { folderFrames = $0 }
+        }
+    }
+
+    @ViewBuilder
+    private func homeGridItems(_ ids: [String], columns: Int, side: CGFloat,
+                               metrics: LCHomeMetrics) -> some View {
+        if apps.isEmpty {
+            emptyState
+        } else if ids.isEmpty {
+            Text("lcos.home.noResults".loc)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            continuousGrid(ids, columns: columns, side: side, metrics: metrics)
+        }
+    }
+
+    /// iOS 26's safeAreaBar extends the native scroll edge effect through
+    /// pinned controls. The older safeAreaInset path remains functional without
+    /// adding a custom blur/gradient rectangle over the icon grid.
+    @ViewBuilder
+    private func homeChrome<Content: View>(_ content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if usesTopTabActions {
+                // iPad's tab strip already owns the top action row.
+                content
+                    .safeAreaBar(edge: .top, spacing: 0) { pinnedHeader }
+                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+            } else {
+                // Keep the title above the effect. Only the button row is
+                // inside the native top bar, so its soft transition begins
+                // at the level of the controls instead of behind the title.
+                content
+                    .safeAreaBar(edge: .top, spacing: 0) { pinnedControls }
+                    .safeAreaInset(edge: .top, spacing: 0) { pinnedTitle }
+                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+            }
+        } else {
+            content
+                .safeAreaInset(edge: .top, spacing: 0) { pinnedHeader }
+                .safeAreaInset(edge: .bottom, spacing: 0) { pinnedSearch }
+        }
+    }
+
+    private var pinnedHeader: some View {
+        VStack(spacing: 8) {
+            header
+            if searching { searchField }
+            if importing {
+                ProgressView(value: Double(installProgress))
+                    .padding(.horizontal, 24)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    /// Search and installation progress remain in the pinned control region.
+    /// The title is deliberately excluded so blur begins at the button row.
+    private var pinnedControls: some View {
+        VStack(spacing: 8) {
+            pinnedActionBar
+            if searching { searchField }
+            if importing {
+                ProgressView(value: Double(installProgress))
+                    .padding(.horizontal, 24)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder private var pinnedSearch: some View {
+        if !searching {
+            Button { animate { searching = true }; searchFocused = true } label: {
+                Label("lcos.home.search".loc, systemImage: "magnifyingglass")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .lcGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 12)
+        }
+    }
+
     private var usesTopTabActions: Bool {
         if #available(iOS 26.0, *) {
             return UIDevice.current.userInterfaceIdiom == .pad
@@ -229,55 +316,75 @@ struct LCHomeScreenView: View {
         return false
     }
 
-    private var header: some View {
+    /// Outside the glass boundary: keeps the iPhone page title crisp even
+    /// when a long grid scrolls underneath the action row.
+    private var pinnedTitle: some View {
+        Text("lc.appList.myApps".loc)
+            .font(.title2.weight(.bold))
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(scheme == .dark ? Color.black : Color.white)
+    }
+
+    /// The pinned top actions, and only the actions, receive the iOS 26
+    /// native soft edge effect. No material rectangle or custom fade.
+    private var pinnedActionBar: some View {
         LCGlassGroup {
-            VStack(spacing: 8) {
-                Text("lc.appList.myApps".loc)
-                    .font(.title2.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .accessibilityAddTraits(.isHeader)
-                if !usesTopTabActions {
-                    HStack(spacing: 12) {
-                        Spacer(minLength: 0)
-                        if editing {
-                            Button("lcos.home.done".loc) { finishEditing() }
-                                .accessibilityIdentifier("lifecontainer.editDone")
-                                .font(.body.weight(.semibold))
-                                .padding(.horizontal, 16)
-                                .frame(height: 44)
-                                .lcGlass(in: Capsule(), interactive: true)
-                        } else {
-                            if shared.multiLCStatus != 2 {
-                                Menu {
-                                    Button("lc.appList.installFromIpa".loc, action: importIPA)
-                                    Button("lc.appList.installFromUrl".loc, action: importURL)
-                                } label: { chromeIcon("plus") }
-                                    .lcFixedInstallOrder()
-                                    .disabled(importing)
-                                    .accessibilityLabel("lc.appList.installFromIpa".loc)
-                            }
-                            if let openSideStore {
-                                Button(action: openSideStore) {
-                                    IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
-                                        .frame(width: 22, height: 22)
-                                        .frame(width: 44, height: 44)
-                                        .lcGlass(in: Circle(), interactive: true)
-                                }.accessibilityLabel("SideStore")
-                            }
+                HStack(spacing: 12) {
+                    Spacer(minLength: 0)
+                    if editing {
+                        Button("lcos.home.done".loc) { finishEditing() }
+                            .accessibilityIdentifier("lifecontainer.editDone")
+                            .font(.body.weight(.semibold))
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .lcGlass(in: Capsule(), interactive: true)
+                    } else {
+                        if shared.multiLCStatus != 2 {
                             Menu {
-                                Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
-                                Button("lcos.home.edit".loc) { startEditing() }
-                                Button("lcos.home.list".loc) { gridEnabled = false }
-                                Button("lc.appList.openLink".loc, action: openLink)
-                                if let openSideStore { Button("SideStore", action: openSideStore) }
-                                Button("lcos.home.reset".loc) { resetConfirmation = true }
-                            } label: { chromeIcon("ellipsis") }
-                                .accessibilityLabel("lcos.home.options".loc)
+                                Button("lc.appList.installFromIpa".loc, action: importIPA)
+                                Button("lc.appList.installFromUrl".loc, action: importURL)
+                            } label: { chromeIcon("plus") }
+                                .lcFixedInstallOrder()
+                                .disabled(importing)
+                                .accessibilityLabel("lc.appList.installFromIpa".loc)
                         }
-                    }.buttonStyle(.plain)
-                }
+                        if let openSideStore {
+                            Button(action: openSideStore) {
+                                IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
+                                    .frame(width: 22, height: 22)
+                                    .frame(width: 44, height: 44)
+                                    .lcGlass(in: Circle(), interactive: true)
+                            }.accessibilityLabel("SideStore")
+                        }
+                        Menu {
+                            Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
+                            Button("lcos.home.edit".loc) { startEditing() }
+                            Button("lcos.home.list".loc) { gridEnabled = false }
+                            Button("lc.appList.openLink".loc, action: openLink)
+                            if let openSideStore { Button("SideStore", action: openSideStore) }
+                            Button("lcos.home.reset".loc) { resetConfirmation = true }
+                        } label: { chromeIcon("ellipsis") }
+                            .accessibilityLabel("lcos.home.options".loc)
+                    }
+                }.buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+    }
+
+    /// Reuse the exact same controls in legacy iOS and on iPad. No duplicate
+    /// button implementations that can diverge when actions are added.
+    private var header: some View {
+        VStack(spacing: 0) {
+            pinnedTitle
+            if !usesTopTabActions {
+                pinnedActionBar
             }
-        }.padding(.horizontal, 20).padding(.top, 12)
+        }
     }
     private func chromeIcon(_ name: String) -> some View {
         Image(systemName: name).font(.system(size: 18, weight: .medium)).frame(width: 44, height: 44)
@@ -286,10 +393,18 @@ struct LCHomeScreenView: View {
     private var searchField: some View {
         HStack {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("lcos.home.search".loc, text: $query).textInputAutocapitalization(.never)
-                .disableAutocorrection(true).focused($searchFocused)
+            TextField("lcos.home.search".loc, text: $query)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .focused($searchFocused)
+                // The pinned search bar enters the hierarchy after the
+                // initial tap. Focus it on insertion, not in the same
+                // transaction as the button that creates the TextField.
+                .onAppear { searchFocused = true }
             Button { query = ""; animate { searching = false }; searchFocused = false } label: {
-                Image(systemName: "xmark.circle.fill").frame(width: 36, height: 36)
+                Image(systemName: "xmark.circle.fill")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }.accessibilityLabel("lc.common.cancel".loc)
         }.padding(.leading, 16).padding(.trailing, 4).padding(.vertical, 4)
             .lcGlass(in: RoundedRectangle(cornerRadius: 20)).padding(.horizontal, 20)
@@ -330,28 +445,59 @@ struct LCHomeScreenView: View {
         Color.clear.contentShape(Rectangle())
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {}, exit: {}, finish: drop))
     }
-    private func desktopPage(_ ids: [String], index: Int, columns: Int, side: CGFloat, perPage: Int, metrics: LCHomeMetrics) -> some View {
+    /// One continuous, lazily loaded iPhone/iPad home grid. Root app placement
+    /// has no pages; folders retain their own familiar paging interaction.
+    private func continuousGrid(_ ids: [String], columns: Int, side: CGFloat,
+                                metrics: LCHomeMetrics) -> some View {
         GeometryReader { proxy in
-            ScrollView(showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: showScrollIndicator) {
                 VStack(spacing: 0) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: CGFloat(metrics.rowSpacing)) {
-                        ForEach(ids, id: \.self) { id in tile(id, side: side, container: nil) }
-                    }.padding(.horizontal, CGFloat(metrics.horizontalInset)).padding(.top, 20).padding(.bottom, 24)
-                    blankArea { dropAtPageEnd(index, perPage: perPage, folder: nil) }
-                        .frame(minHeight: 28, maxHeight: .infinity)
-                }.frame(minHeight: proxy.size.height, alignment: .top)
-                    .background(LCHomeBlankPress(perform: { startEditing() }, tapped: { if editing { finishEditing() } }, enabled: folderID == nil))
-            }.modifier(LCHomeCleanScrollEdges())
-                .modifier(LCHomeOptionalVeil(enabled: edgeFade))
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+                                       count: columns),
+                        spacing: CGFloat(metrics.rowSpacing)
+                    ) {
+                        ForEach(ids, id: \.self) { id in
+                            tile(id, side: side, container: nil)
+                        }
+                    }
+                    .padding(.horizontal, CGFloat(metrics.horizontalInset))
+                    // The first/last icon shadow has breathing room: do not
+                    // draw a material rectangle over an abruptly clipped row.
+                    .padding(.top, 20)
+                    .padding(.bottom, 24)
+                    blankArea { dropAtGridEnd() }
+                        .frame(minHeight: 48, maxHeight: .infinity)
+                }
+                .frame(minHeight: proxy.size.height, alignment: .top)
+                .background(LCHomeBlankPress(
+                    perform: { startEditing() },
+                    tapped: { if editing { finishEditing() } },
+                    enabled: folderID == nil
+                ))
+            }
+            .lcNativeHomeScrollEdges(enabled: edgeFade)
+            .accessibilityIdentifier("lifecontainer.homeContinuousGrid")
         }
     }
-    private func dropAtPageEnd(_ index: Int, perPage: Int, folder: String?) {
+
+    private func dropAtGridEnd() {
         guard let source = draggedID else { return }
-        let items = folder.flatMap { id in layout.folders.first { $0.id == id }?.apps } ?? layout.rootItems(available)
+        var value = layout
+        value.moveItem(source, before: nil, available: available)
+        animate { save(value) }
+        commitDrag()
+    }
+
+    /// Existing folder pages use this helper; the root grid does not.
+    private func dropAtPageEnd(_ index: Int, perPage: Int, folder: String) {
+        guard let source = draggedID,
+              let items = layout.folders.first(where: { $0.id == folder })?.apps else { return }
         let destination = items.dropFirst((index + 1) * perPage).first
         var value = layout
         value.moveItem(source, before: destination, in: folder, available: available)
-        animate { save(value) }; commitDrag()
+        animate { save(value) }
+        commitDrag()
     }
     private func hover(source: String, target: String, center: Bool, container: String?) {
         guard source != target else { return }
@@ -568,12 +714,16 @@ struct LCHomeScreenView: View {
         HStack(spacing: 8) {
             ForEach(0..<count, id: \.self) { index in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) { selection.wrappedValue = index } } label: {
-                    Circle().fill(Color.primary.opacity(selection.wrappedValue == index ? 0.8 : 0.22)).frame(width: 6, height: 6).padding(8)
+                    Circle()
+                        .fill(Color.primary.opacity(selection.wrappedValue == index ? 0.8 : 0.22))
+                        .frame(width: 6, height: 6)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }.accessibilityLabel("lcos.home.page".localizeWithFormat(index + 1))
             }
         }.buttonStyle(.plain)
     }
-    private func pageEdge(_ direction: Int, count: Int, perPage: Int, folder: String? = nil) -> some View {
+    private func pageEdge(_ direction: Int, count: Int, perPage: Int, folder: String) -> some View {
         Color.clear.frame(width: 24).contentShape(Rectangle())
             .allowsHitTesting(draggedID != nil)
             .onDrop(of: [Self.dragType], delegate: LCHomeEdgeDrop(enter: {
@@ -582,19 +732,17 @@ struct LCHomeScreenView: View {
                     while !Task.isCancelled, draggedID != nil {
                         try? await Task.sleep(nanoseconds: 700_000_000)
                         guard !Task.isCancelled else { return }
-                        let current = folder == nil ? page : folderPage
-                        let next = min(max(current + direction, 0), count - 1)
-                        guard next != current else { return }
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) {
-                            if folder == nil { page = next } else { folderPage = next }
-                        }
+                        let next = min(max(folderPage + direction, 0), count - 1)
+                        guard next != folderPage else { return }
+                        withAnimation(homeAnimation) { folderPage = next }
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
                 }
             }, exit: { edgeTask?.cancel() }, finish: {
-                dropAtPageEnd(folder == nil ? page : folderPage, perPage: perPage, folder: folder)
+                dropAtPageEnd(folderPage, perPage: perPage, folder: folder)
             }))
     }
+
 }
 
 private struct LCHomeFolderFrames: PreferenceKey {
