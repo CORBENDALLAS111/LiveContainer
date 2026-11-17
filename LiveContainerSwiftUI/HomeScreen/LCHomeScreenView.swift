@@ -97,51 +97,8 @@ struct LCHomeScreenView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // The iPadOS top tab row owns the install/SideStore/menu controls.
-            // Do not reserve their former second header row in the grid geometry.
-            let reservedHeight: CGFloat = usesTopTabActions
-                ? (searching ? 154 : 110) : (searching ? 206 : 162)
-            let metrics = LCHomeMetrics(width: geometry.size.width, height: max(0, geometry.size.height - reservedHeight),
-                tablet: UIDevice.current.userInterfaceIdiom == .pad,
-                mini: LCHomeMetrics.isMini(model: Self.deviceModel, shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)),
-                accessibility: sizeCategory.isAccessibilityCategory, isLandscape: geometry.size.width > geometry.size.height)
-            let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
-            let columns = metrics.columns
-            let ids = query.isEmpty ? layout.rootItems(available) : layout.ordered(available).filter { id in
-                guard let app = model(id) else { return false }
-                return app.displayName.localizedCaseInsensitiveContains(query) || app.bundleIdentifier.localizedCaseInsensitiveContains(query)
-            }
-            ZStack {
-                // Keep the view opaque inside its own safe area, but do not
-                // paint a full-screen rectangle underneath the floating
-                // system tab bar. iOS needs that region for its own soft
-                // scroll-edge blur and Liquid Glass compositing.
-                Color(uiColor: .systemBackground)
-                    .contentShape(Rectangle()).onLongPressGesture { startEditing() }
-                homeChrome(
-                    VStack(spacing: 0) {
-                        if apps.isEmpty {
-                            emptyState
-                        } else if ids.isEmpty {
-                            Text("lcos.home.noResults".loc)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            continuousGrid(ids, columns: columns, side: side, metrics: metrics)
-                        }
-                    }
-                )
-                .frame(maxWidth: .infinity)
-                    .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
-                    .blur(radius: motionEnabled ? 8 * folderProgress : 0)
-                    .allowsHitTesting(folderID == nil)
-                    .accessibilityHidden(folderID != nil)
-                if let id = folderID, let folder = layout.folders.first(where: { $0.id == id }) {
-                    folderOverlay(folder, frame: geometry.frame(in: .global), side: side).zIndex(2)
-                }
-            }
-            .onPreferenceChange(LCHomeFolderFrames.self) { if folderID == nil { folderFrames = $0 } }
-         }
+            homeCanvas(geometry)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEdit)) { _ in
             guard gridEnabled else { return }
             startEditing()
@@ -217,6 +174,71 @@ struct LCHomeScreenView: View {
             #if DEBUG
             previewMotionTask?.cancel()
             #endif
+        }
+    }
+
+    /// Isolate the grid layout from the event/notification modifiers. In
+    /// addition to simpler ownership, this avoids SwiftUI's simulator
+    /// compiler timeout when type-checking an oversized GeometryReader body.
+    private func homeCanvas(_ geometry: GeometryProxy) -> some View {
+        let reservedHeight: CGFloat = usesTopTabActions
+            ? (searching ? 154 : 110) : (searching ? 206 : 162)
+        let metrics = LCHomeMetrics(
+            width: geometry.size.width,
+            height: max(0, geometry.size.height - reservedHeight),
+            tablet: UIDevice.current.userInterfaceIdiom == .pad,
+            mini: LCHomeMetrics.isMini(
+                model: Self.deviceModel,
+                shortSide: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+            ),
+            accessibility: sizeCategory.isAccessibilityCategory,
+            isLandscape: geometry.size.width > geometry.size.height
+        )
+        let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
+        let ids = query.isEmpty
+            ? layout.rootItems(available)
+            : layout.ordered(available).filter { id in
+                guard let app = model(id) else { return false }
+                return app.displayName.localizedCaseInsensitiveContains(query) ||
+                    app.bundleIdentifier.localizedCaseInsensitiveContains(query)
+            }
+
+        return ZStack {
+            // The system owns the region under the floating tab bar. Do
+            // not cover it with a full-screen opaque background rectangle.
+            Color(uiColor: .systemBackground)
+                .contentShape(Rectangle())
+                .onLongPressGesture { startEditing() }
+
+            homeChrome(homeGridItems(ids, columns: metrics.columns, side: side, metrics: metrics))
+                .frame(maxWidth: .infinity)
+                .scaleEffect(motionEnabled ? 1 + 0.045 * folderProgress : 1)
+                .blur(radius: motionEnabled ? 8 * folderProgress : 0)
+                .allowsHitTesting(folderID == nil)
+                .accessibilityHidden(folderID != nil)
+
+            if let id = folderID,
+               let folder = layout.folders.first(where: { $0.id == id }) {
+                folderOverlay(folder, frame: geometry.frame(in: .global), side: side)
+                    .zIndex(2)
+            }
+        }
+        .onPreferenceChange(LCHomeFolderFrames.self) {
+            if folderID == nil { folderFrames = $0 }
+        }
+    }
+
+    @ViewBuilder
+    private func homeGridItems(_ ids: [String], columns: Int, side: CGFloat,
+                               metrics: LCHomeMetrics) -> some View {
+        if apps.isEmpty {
+            emptyState
+        } else if ids.isEmpty {
+            Text("lcos.home.noResults".loc)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            continuousGrid(ids, columns: columns, side: side, metrics: metrics)
         }
     }
 
