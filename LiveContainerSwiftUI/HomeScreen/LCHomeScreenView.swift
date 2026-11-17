@@ -308,7 +308,9 @@ struct LCHomeScreenView: View {
             TextField("lcos.home.search".loc, text: $query).textInputAutocapitalization(.never)
                 .disableAutocorrection(true).focused($searchFocused)
             Button { query = ""; animate { searching = false }; searchFocused = false } label: {
-                Image(systemName: "xmark.circle.fill").frame(width: 36, height: 36)
+                Image(systemName: "xmark.circle.fill")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }.accessibilityLabel("lc.common.cancel".loc)
         }.padding(.leading, 16).padding(.trailing, 4).padding(.vertical, 4)
             .lcGlass(in: RoundedRectangle(cornerRadius: 20)).padding(.horizontal, 20)
@@ -618,7 +620,11 @@ struct LCHomeScreenView: View {
         HStack(spacing: 8) {
             ForEach(0..<count, id: \.self) { index in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) { selection.wrappedValue = index } } label: {
-                    Circle().fill(Color.primary.opacity(selection.wrappedValue == index ? 0.8 : 0.22)).frame(width: 6, height: 6).padding(8)
+                    Circle()
+                        .fill(Color.primary.opacity(selection.wrappedValue == index ? 0.8 : 0.22))
+                        .frame(width: 6, height: 6)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }.accessibilityLabel("lcos.home.page".localizeWithFormat(index + 1))
             }
         }.buttonStyle(.plain)
