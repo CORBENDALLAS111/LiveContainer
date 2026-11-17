@@ -222,9 +222,20 @@ struct LCHomeScreenView: View {
     @ViewBuilder
     private func homeChrome<Content: View>(_ content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content
-                .safeAreaBar(edge: .top, spacing: 0) { pinnedHeader }
-                .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+            if usesTopTabActions {
+                // iPad's tab strip already owns the top action row.
+                content
+                    .safeAreaBar(edge: .top, spacing: 0) { pinnedHeader }
+                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+            } else {
+                // Keep the title above the effect. Only the button row is
+                // inside the native top bar, so its soft transition begins
+                // at the level of the controls instead of behind the title.
+                content
+                    .safeAreaBar(edge: .top, spacing: 0) { pinnedActionBar }
+                    .safeAreaInset(edge: .top, spacing: 0) { pinnedTitle }
+                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
+            }
         } else {
             content
                 .safeAreaInset(edge: .top, spacing: 0) { pinnedHeader }
@@ -265,6 +276,67 @@ struct LCHomeScreenView: View {
         return false
     }
 
+    /// Outside the glass boundary: keeps the iPhone page title crisp even
+    /// when a long grid scrolls underneath the action row.
+    private var pinnedTitle: some View {
+        Text("lc.appList.myApps".loc)
+            .font(.title2.weight(.bold))
+            .frame(maxWidth: .infinity)
+            .accessibilityAddTraits(.isHeader)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(scheme == .dark ? Color.black : Color.white)
+    }
+
+    /// The pinned top actions, and only the actions, receive the iOS 26
+    /// native soft edge effect. No material rectangle or custom fade.
+    private var pinnedActionBar: some View {
+        LCGlassGroup {
+                HStack(spacing: 12) {
+                    Spacer(minLength: 0)
+                    if editing {
+                        Button("lcos.home.done".loc) { finishEditing() }
+                            .accessibilityIdentifier("lifecontainer.editDone")
+                            .font(.body.weight(.semibold))
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .lcGlass(in: Capsule(), interactive: true)
+                    } else {
+                        if shared.multiLCStatus != 2 {
+                            Menu {
+                                Button("lc.appList.installFromIpa".loc, action: importIPA)
+                                Button("lc.appList.installFromUrl".loc, action: importURL)
+                            } label: { chromeIcon("plus") }
+                                .lcFixedInstallOrder()
+                                .disabled(importing)
+                                .accessibilityLabel("lc.appList.installFromIpa".loc)
+                        }
+                        if let openSideStore {
+                            Button(action: openSideStore) {
+                                IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
+                                    .frame(width: 22, height: 22)
+                                    .frame(width: 44, height: 44)
+                                    .lcGlass(in: Circle(), interactive: true)
+                            }.accessibilityLabel("SideStore")
+                        }
+                        Menu {
+                            Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
+                            Button("lcos.home.edit".loc) { startEditing() }
+                            Button("lcos.home.list".loc) { gridEnabled = false }
+                            Button("lc.appList.openLink".loc, action: openLink)
+                            if let openSideStore { Button("SideStore", action: openSideStore) }
+                            Button("lcos.home.reset".loc) { resetConfirmation = true }
+                        } label: { chromeIcon("ellipsis") }
+                            .accessibilityLabel("lcos.home.options".loc)
+                    }
+                }.buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+    }
+
+    // Older iOS and iPad keep their existing header hierarchy.
     private var header: some View {
         LCGlassGroup {
             VStack(spacing: 8) {
@@ -273,47 +345,49 @@ struct LCHomeScreenView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityAddTraits(.isHeader)
                 if !usesTopTabActions {
-                    HStack(spacing: 12) {
-                        Spacer(minLength: 0)
-                        if editing {
-                            Button("lcos.home.done".loc) { finishEditing() }
-                                .accessibilityIdentifier("lifecontainer.editDone")
-                                .font(.body.weight(.semibold))
-                                .padding(.horizontal, 16)
-                                .frame(height: 44)
-                                .lcGlass(in: Capsule(), interactive: true)
-                        } else {
-                            if shared.multiLCStatus != 2 {
+                        HStack(spacing: 12) {
+                            Spacer(minLength: 0)
+                            if editing {
+                                Button("lcos.home.done".loc) { finishEditing() }
+                                    .accessibilityIdentifier("lifecontainer.editDone")
+                                    .font(.body.weight(.semibold))
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 44)
+                                    .lcGlass(in: Capsule(), interactive: true)
+                            } else {
+                                if shared.multiLCStatus != 2 {
+                                    Menu {
+                                        Button("lc.appList.installFromIpa".loc, action: importIPA)
+                                        Button("lc.appList.installFromUrl".loc, action: importURL)
+                                    } label: { chromeIcon("plus") }
+                                        .lcFixedInstallOrder()
+                                        .disabled(importing)
+                                        .accessibilityLabel("lc.appList.installFromIpa".loc)
+                                }
+                                if let openSideStore {
+                                    Button(action: openSideStore) {
+                                        IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
+                                            .frame(width: 22, height: 22)
+                                            .frame(width: 44, height: 44)
+                                            .lcGlass(in: Circle(), interactive: true)
+                                    }.accessibilityLabel("SideStore")
+                                }
                                 Menu {
-                                    Button("lc.appList.installFromIpa".loc, action: importIPA)
-                                    Button("lc.appList.installFromUrl".loc, action: importURL)
-                                } label: { chromeIcon("plus") }
-                                    .lcFixedInstallOrder()
-                                    .disabled(importing)
-                                    .accessibilityLabel("lc.appList.installFromIpa".loc)
+                                    Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
+                                    Button("lcos.home.edit".loc) { startEditing() }
+                                    Button("lcos.home.list".loc) { gridEnabled = false }
+                                    Button("lc.appList.openLink".loc, action: openLink)
+                                    if let openSideStore { Button("SideStore", action: openSideStore) }
+                                    Button("lcos.home.reset".loc) { resetConfirmation = true }
+                                } label: { chromeIcon("ellipsis") }
+                                    .accessibilityLabel("lcos.home.options".loc)
                             }
-                            if let openSideStore {
-                                Button(action: openSideStore) {
-                                    IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(scheme == .dark))
-                                        .frame(width: 22, height: 22)
-                                        .frame(width: 44, height: 44)
-                                        .lcGlass(in: Circle(), interactive: true)
-                                }.accessibilityLabel("SideStore")
-                            }
-                            Menu {
-                                Toggle("lcos.home.enabled".loc, isOn: $gridEnabled)
-                                Button("lcos.home.edit".loc) { startEditing() }
-                                Button("lcos.home.list".loc) { gridEnabled = false }
-                                Button("lc.appList.openLink".loc, action: openLink)
-                                if let openSideStore { Button("SideStore", action: openSideStore) }
-                                Button("lcos.home.reset".loc) { resetConfirmation = true }
-                            } label: { chromeIcon("ellipsis") }
-                                .accessibilityLabel("lcos.home.options".loc)
-                        }
-                    }.buttonStyle(.plain)
+                        }.buttonStyle(.plain)
                 }
             }
-        }.padding(.horizontal, 20).padding(.top, 12)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
     }
     private func chromeIcon(_ name: String) -> some View {
         Image(systemName: name).font(.system(size: 18, weight: .medium)).frame(width: 44, height: 44)
