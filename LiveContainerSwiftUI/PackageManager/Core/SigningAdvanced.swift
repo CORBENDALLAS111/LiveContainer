@@ -1,6 +1,10 @@
 import Foundation
 
 enum SigningAdvanced {
+    /// Explicit host Advanced Install request, never a claim that Apple granted
+    /// the entitlement. The source-built SideStore validates the signed profile.
+    static let increasedMemoryRequestKey = "LCOSIncreasedMemoryLimitRequested"
+
     struct App {
         let url: URL
         let name: String
@@ -23,6 +27,9 @@ enum SigningAdvanced {
     struct Options: Sendable {
         var enableFileSharing: Bool
         var removeAppExtensions: Bool = false
+        /// The Apple App ID capability and signing entitlement are handled
+        /// later by SideStore, not by this metadata-only IPA editor.
+        var enableIncreasedMemoryLimit: Bool = false
         /// Individual .appex names to omit from the staged IPA before signing.
         var excludedExtensionNames: Set<String> = []
     }
@@ -120,6 +127,13 @@ enum SigningAdvanced {
             if bundle == app.url {
                 plist["CFBundleDisplayName"] = name; plist["CFBundleName"] = name
                 plist["UIFileSharingEnabled"] = options.enableFileSharing
+                // Only a user-selected Advanced Install may write this opt-in.
+                // A disabled selection clears stale requests from an imported IPA.
+                if options.enableIncreasedMemoryLimit {
+                    plist[increasedMemoryRequestKey] = true
+                } else {
+                    plist.removeValue(forKey: increasedMemoryRequestKey)
+                }
                 if options.enableFileSharing {
                     // Also expose Documents in the Files app; this alone cannot
                     // grant access to a sandbox outside the app's Documents folder.
