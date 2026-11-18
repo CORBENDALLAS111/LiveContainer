@@ -16,7 +16,23 @@ operation=source/'SideStore/Core/Operations/PipelineOperations/ResignAppOperatio
 s=operation.read_text(encoding='utf-8')
 anchor='        let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])'
 assert s.count(anchor)==1
-s=s.replace(anchor, '        let lcosOriginalBundleIdentifier = self.context.bundleIdentifier\n'+anchor+'\n        try SigningBundleIdentifiers.validateBundle(at: appBundleURL)\n        try LCOSSigningInjection.prepare(at: appBundleURL, bundleIdentifier: lcosOriginalBundleIdentifier)')
+s=s.replace(anchor, '''        let lcosOriginalBundleIdentifier = self.context.bundleIdentifier
+        let lcosMemoryRequested = try SigningIncreasedMemory.requested(
+            in: appBundle.fileURL, bundleIdentifier: appBundle.bundleIdentifier)
+'''+anchor+'''
+        if lcosMemoryRequested {
+            // SideStore may add a team suffix/change the final app identity.
+            // The marker is bound to the original IPA during provisioning;
+            // rebind it to the *actual* prepared bundle ID before SideSign
+            // enforces the same request at the final signature step.
+            guard let prepared = ALTApplication(fileURL: appBundleURL) else {
+                throw OperationError.invalidApp(reason: "Cannot inspect prepared app for Increased Memory Limit")
+            }
+            try SigningIncreasedMemory.writeRequest(
+                in: appBundleURL, bundleIdentifier: prepared.bundleIdentifier)
+        }
+        try SigningBundleIdentifiers.validateBundle(at: appBundleURL)
+        try LCOSSigningInjection.prepare(at: appBundleURL, bundleIdentifier: lcosOriginalBundleIdentifier)''')
 anchor='        let newBundleID = appexBundleIds[identifier] ?? profile.bundleIdentifier'
 assert s.count(anchor)==1
 s=s.replace(anchor, '''        if context.useMainProfile, identifier != context.targetBundleIdentifier, appexBundleIds[identifier] == nil {
@@ -40,6 +56,12 @@ sp=sp.replace(anchor,'''        let memoryRequested = try SigningIncreasedMemory
             // explicitly opted-in request is sent to Apple and may be denied.
             targetFeatures[.increasedMemoryLimit] = "true"
             SigningDiagnostics.record("memory.capability.requested", appID.bundleIdentifier)
+        } else if appID.features[.increasedMemoryLimit] == "true",
+                  entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool == true {
+            // Preserve a previously authorized host entitlement when
+            // refreshing a signed LC+ installation. A consumed one-time
+            // marker must not cause Apple to disable the capability later.
+            targetFeatures[.increasedMemoryLimit] = "true"
         }
 
 '''+anchor)
