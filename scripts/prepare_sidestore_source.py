@@ -252,5 +252,18 @@ for file in files:shutil.copyfile(file,destination/file.name)
 manifest={'schema':1,'integration_script_sha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'resign_operation_sha256':hashlib.sha256(operation.read_bytes()).hexdigest(),'repository':'LiveContainer/SideStore','commit':actual,'overlay':{file.name:hashlib.sha256(file.read_bytes()).hexdigest() for file in files},'signing_phase':'after bundle preparation, before ALTSigner.signApp'}
 manifest['install_ui']={'executor_sha256':hashlib.sha256(executor.read_bytes()).hexdigest(),'handler_sha256':hashlib.sha256(handler.read_bytes()).hexdigest(),'phase':'advanced configuration in host; no guest framework loading', 'host_ui_only':True, 'pipeline_diagnostics':True, 'picker_owned_copy':True, 'picker_sha256':hashlib.sha256(myapps.read_bytes()).hexdigest(), 'download_sha256':hashlib.sha256(download.read_bytes()).hexdigest()}
 manifest['extension_ids']={'prepare_sha256':hashlib.sha256(extension_operation.read_bytes()).hexdigest(),'validate_before_signing':True}
+manifest['increased_memory_limit']={
+    'sidesign_base':sidesign_base,
+    'sidesign_capability_patch':sidesign_memory_patch,
+    'feature':'INCREASED_MEMORY_LIMIT',
+    'entitlement':'com.apple.developer.kernel.increased-memory-limit',
+    'developer_portal_source_sha256':hashlib.sha256(
+        (sidesign/'Sources/DeveloperPortal/AppIDs.swift').read_bytes()).hexdigest(),
+    'profile_operation_sha256':hashlib.sha256(profiles_operation.read_bytes()).hexdigest(),
+    'signer_sha256':hashlib.sha256(signer.read_bytes()).hexdigest(),
+    'profile_validation':True,
+    'signer_requires_profile':True,
+    'host_opt_in_only':True
+}
 (source/'LCOS_SOURCE.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest,indent=2))
