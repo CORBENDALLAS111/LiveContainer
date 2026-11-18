@@ -42,7 +42,39 @@ def verify_frameworks(archive):
     return len(frameworks)
 
 
-def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False, builtin_jit=False):
+
+def verify_host_memory_request(archive, root, info):
+    """Assert LC+ host will explicitly request Apple capability when re-signed.
+
+    This is preparation evidence; an IPA's unsigned metadata cannot prove that
+    an actual Apple provisioning profile or installed signature grants memory.
+    """
+    entry = root + "LCOSIncreasedMemoryRequest.plist"
+    try:
+        blob = archive.read(entry)
+    except KeyError as error:
+        raise ValueError("Integrated LC+ host lacks Increased Memory Limit request") from error
+    if len(blob) > 4096:
+        raise ValueError("Host Increased Memory Limit request exceeds size limit")
+    try:
+        payload = plistlib.loads(blob)
+    except (ValueError, plistlib.InvalidFileException) as error:
+        raise ValueError("Invalid LC+ host memory request plist") from error
+    if payload != {
+        "schema": 1,
+        "requested": True,
+        "bundleIdentifier": info["CFBundleIdentifier"],
+    }:
+        raise ValueError("LC+ host memory request does not match final app identity")
+    return {
+        "host_requested": True,
+        "installed_memory_entitlement_verified": False,
+        "apple_profile_granted": False,
+    }
+
+
+def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False,
+           builtin_jit=False, host_memory_request=False):
     path = pathlib.Path(path)
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError('IPA is absent or empty')
@@ -84,6 +116,10 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                     raise ValueError('Missing integrated component: ' + suffix)
             if 'group.com.SideStore.SideStore' not in info.get('ALTAppGroups', []):
                 raise ValueError('Missing SideStore app group declaration')
+            if host_memory_request:
+                host_memory_evidence = verify_host_memory_request(archive, root, info)
+            elif root + "LCOSIncreasedMemoryRequest.plist" in names:
+                raise ValueError("Standard LC+ IPA unexpectedly requests Extra Memory")
         if signing_injection:
             side = root + 'Frameworks/SideStoreApp.framework/'
             manifest = json.loads(archive.read(side + 'LCOSSigningIntegration.json'))
@@ -129,7 +165,8 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                 'bundle': info['CFBundleIdentifier'], 'signing_injection': signing_injection, 'integrated': integrated, 'entries': len(names),
                 'frameworks_checked': framework_count,
                 'source_commit': source_commit, 'automation_metadata': automations,
-                'verification': 'ZIP integrity and expected components only', 'device_tested': False}
+                'verification': 'ZIP integrity and expected components only', 'device_tested': False,
+                'host_memory_request': host_memory_evidence if integrated and host_memory_request else None}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -138,10 +175,12 @@ if __name__ == '__main__':
     parser.add_argument('--signing-injection', action='store_true')
     parser.add_argument('--automations', action='store_true')
     parser.add_argument('--builtin-jit', action='store_true')
+    parser.add_argument('--host-memory-request', action='store_true')
     parser.add_argument('--output')
     parser.add_argument('--source-commit')
     args = parser.parse_args()
-    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection, args.automations, args.builtin_jit)
+    evidence = verify(args.ipa, args.integrated, args.source_commit, args.signing_injection,
+                      args.automations, args.builtin_jit, args.host_memory_request)
     result = json.dumps(evidence, indent=2)
     if args.output:
         pathlib.Path(args.output).write_text(result + '\n', encoding='utf-8')

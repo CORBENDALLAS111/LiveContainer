@@ -78,9 +78,11 @@ jobs:
       - name: Verify integrated IPA and record provenance
         run: |
           mv LiveContainer+SideStore.ipa LifeContainer+SideStore.ipa
+          mv LiveContainer+SideStore-ExtraMemory.ipa LifeContainer+SideStore-ExtraMemory.ipa
           mv LiveContainer.ipa LifeContainer+-Standalone.ipa
           python3 scripts/verify_ipa.py LifeContainer+SideStore.ipa --integrated --signing-injection --automations --builtin-jit --source-commit "$GITHUB_SHA" --output build-evidence.json
-          shasum -a 256 LifeContainer+SideStore.ipa LifeContainer+-Standalone.ipa > SHA256SUMS
+          python3 scripts/verify_ipa.py LifeContainer+SideStore-ExtraMemory.ipa --integrated --signing-injection --automations --builtin-jit --host-memory-request --source-commit "$GITHUB_SHA" --output build-evidence-extra-memory.json
+          shasum -a 256 LifeContainer+SideStore.ipa LifeContainer+SideStore-ExtraMemory.ipa LifeContainer+-Standalone.ipa > SHA256SUMS
           git rev-parse HEAD > SOURCE_COMMIT
           git submodule status > SUBMODULES
           printenv SIDESTORE_BUILD_RUN > SIDESTORE_BUILD_RUN
@@ -89,11 +91,13 @@ jobs:
           name: LifeContainer+SideStore.ipa
           path: |
             LifeContainer+SideStore.ipa
+            LifeContainer+SideStore-ExtraMemory.ipa
             SHA256SUMS
             SOURCE_COMMIT
             SUBMODULES
             SIDESTORE_BUILD_RUN
             build-evidence.json
+            build-evidence-extra-memory.json
             artifacts/signing-bridge/signing-bridge-evidence.json
             artifacts/sidestore-source/SIDESTORE_SOURCE.json
             artifacts/device-probe/LCOSProbe.ipa

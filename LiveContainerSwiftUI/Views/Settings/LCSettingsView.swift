@@ -76,6 +76,13 @@ struct LCSettingsView: View {
     @State private var isViewAppeared = false
     
     let storeName = LCUtils.getStoreName()
+
+    private var hostExtraMemoryEntitled: Bool {
+        let task = SecTaskCreateFromSelf(nil)
+        return (SecTaskCopyValueForEntitlement(task,
+            "com.apple.developer.kernel.increased-memory-limit" as CFString,
+            nil)?.takeRetainedValue() as? Bool) == true
+    }
     
     init() {
         _certificateDataFound = State(initialValue: LCSharedUtils.certificatePassword() != nil)
@@ -91,6 +98,22 @@ struct LCSettingsView: View {
                     } label: {
                         Label("lcos.logs.title".loc, systemImage: "waveform.path.ecg")
                     }
+                }
+                Section {
+                    NavigationLink {
+                        LCEntitlementView(isLiveProcess: false)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Label("lcos.memory.title".loc, systemImage: "memorychip")
+                            Spacer()
+                            Text(hostExtraMemoryEntitled
+                                 ? "lc.common.yes".loc : "lc.common.no".loc)
+                                .font(.subheadline)
+                                .foregroundStyle(hostExtraMemoryEntitled ? Color.green : Color.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("lcos.memory.signingHelp".loc)
                 }
                 if sharedModel.multiLCStatus != 2 {
                     Section{

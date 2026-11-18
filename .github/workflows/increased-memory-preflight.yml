@@ -1,7 +1,7 @@
 name: Increased Memory Limit - Signing Preflight
 on:
   push:
-    branches: ['feature/sidestore-advanced-increased-memory']
+    branches: ['feature/sidestore-advanced-increased-memory', 'feature/lcplus-host-extra-memory']
   pull_request:
     paths:
       - 'scripts/prepare_sidestore_source.py'
@@ -21,7 +21,9 @@ jobs:
       - name: Test fail-closed signer overlay
         run: |
           python3 -m unittest discover -s Tests -p 'test_increased_memory_signer.py' -v
-          python3 -m py_compile scripts/prepare_sidestore_source.py scripts/patch_sidestore_memory_signer.py scripts/verify_sidestore_source.py
+          python3 -m unittest discover -s Tests -p 'test_host_memory_request.py' -v
+          python3 -m unittest discover -s Tests -p 'test_verify_ipa.py' -v
+          python3 -m py_compile scripts/prepare_host_memory_request.py scripts/verify_ipa.py scripts/prepare_sidestore_source.py scripts/patch_sidestore_memory_signer.py scripts/verify_sidestore_source.py
       - uses: actions/checkout@v4
         with:
           repository: LiveContainer/SideStore
@@ -44,5 +46,10 @@ jobs:
           assert '!(key == memoryKey && increasedMemoryRequested)' in sign
           assert 'profile.entitlements[.increasedMemoryLimit] as? Bool == true' in profile
           assert 'targetFeatures[.increasedMemoryLimit] = "true"' in profile
-          print('Pinned signer and Apple portal preflight are wired; no Apple account used.')
+          assert 'entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool == true' in profile
+          resign=(root/'SideStore/Core/Operations/PipelineOperations/ResignAppOperation.swift').read_text()
+          assert 'lcosMemoryRequested' in resign
+          assert 'SigningIncreasedMemory.writeRequest' in resign
+          assert 'prepared.bundleIdentifier' in resign
+          print('Host memory request is rebound to final app ID and retained across refreshes. No Apple account used.')
           PY
