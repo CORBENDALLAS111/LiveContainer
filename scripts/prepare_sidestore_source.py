@@ -45,6 +45,63 @@ signed=signed.replace(needle,'''            let applicationEntitlements = app.en
             for (key, _) in filteredEntitlements {
                 if key == memoryEntitlement && requestedMemory { continue }''')
 signer.write_text(signed,encoding='utf-8')
+# Only Advanced Install opts in. The SideStore pipeline is the only component
+# that can update the registered Apple App ID and obtain the provisioning
+# profile; the host IPA editor must never claim to grant the entitlement.
+profiles_operation=source/'SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift'
+profile_source=profiles_operation.read_text(encoding='utf-8')
+anchor='''        let effectiveBundleId = self.context.targetBundleIdentifier
+
+        let appExtensions = targetAppBundle.appExtensions'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let effectiveBundleId = self.context.targetBundleIdentifier
+        let memoryRequested = targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true
+
+        let appExtensions = targetAppBundle.appExtensions''')
+anchor='''        if let overrideProfile = self.context.overrideProvisioningProfile {
+            self.debugLog'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        if let overrideProfile = self.context.overrideProvisioningProfile {
+            if memoryRequested && (overrideProfile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool != true) {
+                throw OperationError.invalidParameters("Selected provisioning profile does not grant Increased Memory Limit")
+            }
+            self.debugLog''')
+anchor='''        let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
+        self.debugLog'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
+        // A successful Apple API request is not proof of an approved
+        // entitlement; verify the actual issued provisioning profile. Never
+        // silently install a normal-memory app when the user opted in.
+        if parentAppBundle == nil &&
+           targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true &&
+           (profile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool != true) {
+            SigningDiagnostics.record("memory.profile.missing", groupAppID.bundleIdentifier, level: "error")
+            throw OperationError.invalidParameters("Apple did not grant Increased Memory Limit to the provisioning profile")
+        }
+        self.debugLog''')
+anchor='''        // check if we really need to make a update on portal
+        let currentFeatures = appID.features'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let memoryRequested = targetAppBundle.bundleIdentifier == self.context.targetAppBundle?.bundleIdentifier &&
+            (targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true)
+        if memoryRequested {
+            guard allowedFeatures.contains(.increasedMemoryLimit) else {
+                throw OperationError.invalidParameters("Increased Memory Limit is not available for this signing team")
+            }
+            targetFeatures[.increasedMemoryLimit] = "true"
+            SigningDiagnostics.record("memory.capability.requested", appID.bundleIdentifier)
+        }
+
+        // check if we really need to make a update on portal
+        let currentFeatures = appID.features''')
+anchor='''        let needsUpdate = targetFeatures.contains { feature, targetValue in'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        // The older App ID listing may not reflect the v1 memory capability.
+        // Repeat this idempotent request on explicit Advanced Install opt-in.
+        let needsUpdate = memoryRequested || targetFeatures.contains { feature, targetValue in''')
+profiles_operation.write_text(profile_source,encoding='utf-8')
+
 operation=source/'SideStore/Core/Operations/PipelineOperations/ResignAppOperation.swift'
 s=operation.read_text(encoding='utf-8')
 anchor='        let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])'
