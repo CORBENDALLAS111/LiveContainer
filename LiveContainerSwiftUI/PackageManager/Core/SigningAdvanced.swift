@@ -25,6 +25,9 @@ enum SigningAdvanced {
         var removeAppExtensions: Bool = false
         /// Individual .appex names to omit from the staged IPA before signing.
         var excludedExtensionNames: Set<String> = []
+        /// Request Apple's Increased Memory Limit capability during SideStore
+        /// provisioning. The default never changes an App ID.
+        var increasedMemoryLimit: Bool = false
     }
     static func inspect(_ directory: URL) throws -> App {
         let apps = try FileManager.default.contentsOfDirectory(at: directory.appendingPathComponent("Payload"), includingPropertiesForKeys: nil)
@@ -150,6 +153,14 @@ enum SigningAdvanced {
         // changes have validated. Untouched .appex files remain in the IPA.
         for extensionURL in extensionURLs where excluded.contains(extensionURL.lastPathComponent) {
             try manager.removeItem(at: extensionURL)
+        }
+        // The signed result depends on Apple approval and the downloaded
+        // profile; never claim the entitlement merely from the local toggle.
+        // Strip any pre-existing marker on the disposable copy when disabled.
+        if options.increasedMemoryLimit {
+            try SigningIncreasedMemory.writeRequest(in: app.url, bundleIdentifier: identifier)
+        } else {
+            try SigningIncreasedMemory.removeRequest(in: app.url)
         }
         try SigningBundleIdentifiers.validateBundle(at: app.url)
     }
