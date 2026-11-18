@@ -24,7 +24,7 @@ func prepare(_ app: AppBundle) throws {
                 }
             }
 }
-'''.replace('key != "get-task-allow"\\n', 'key != "get-task-allow" \\n')
+'''.replace('key != "get-task-allow"' + chr(10), 'key != "get-task-allow" ' + chr(10))
 
 
 class IncreasedMemorySignerTests(unittest.TestCase):
