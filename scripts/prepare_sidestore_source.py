@@ -63,7 +63,11 @@ anchor='''        if let overrideProfile = self.context.overrideProvisioningProf
 assert profile_source.count(anchor)==1
 profile_source=profile_source.replace(anchor,'''        if let overrideProfile = self.context.overrideProvisioningProfile {
             if memoryRequested && (overrideProfile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool != true) {
+                SigningDiagnostics.record("memory.profile.missing", effectiveBundleId, level: "error")
                 throw OperationError.invalidParameters("Selected provisioning profile does not grant Increased Memory Limit")
+            }
+            if memoryRequested {
+                SigningDiagnostics.record("memory.profile.granted", effectiveBundleId)
             }
             self.debugLog''')
 anchor='''        let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
@@ -74,10 +78,13 @@ profile_source=profile_source.replace(anchor,'''        let profile = try await 
         // entitlement; verify the actual issued provisioning profile. Never
         // silently install a normal-memory app when the user opted in.
         if parentAppBundle == nil &&
-           targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true &&
-           (profile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool != true) {
-            SigningDiagnostics.record("memory.profile.missing", groupAppID.bundleIdentifier, level: "error")
-            throw OperationError.invalidParameters("Apple did not grant Increased Memory Limit to the provisioning profile")
+           targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true {
+            guard profile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool == true else {
+                SigningDiagnostics.record("memory.profile.missing", groupAppID.bundleIdentifier, level: "error")
+                throw OperationError.invalidParameters("Apple did not grant Increased Memory Limit to the provisioning profile")
+            }
+            // This records an issued Apple profile, NOT a completed install.
+            SigningDiagnostics.record("memory.profile.granted", groupAppID.bundleIdentifier)
         }
         self.debugLog''')
 anchor='''        // check if we really need to make a update on portal
