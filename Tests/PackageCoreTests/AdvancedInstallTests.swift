@@ -44,6 +44,40 @@ final class AdvancedInstallTests: XCTestCase {
         XCTAssertEqual(plist["LSSupportsOpeningDocumentsInPlace"] as? Bool, true)
     }
 
+    func testIncreasedMemoryLimitOptInSetsRealSigningRequestOnlyForMainApp() throws {
+        let (root, app) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try SigningAdvanced.customize(app, name: app.name, identifier: app.identifier,
+            iconPNG: nil, options: .init(enableFileSharing: false, enableIncreasedMemoryLimit: true))
+        let main = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: Data(contentsOf: app.url.appendingPathComponent("Info.plist")),
+            format: nil) as? [String: Any])
+        let extensionInfo = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: Data(contentsOf: app.url.appendingPathComponent("PlugIns/Widget.appex/Info.plist")),
+            format: nil) as? [String: Any])
+        XCTAssertEqual(main[SigningAdvanced.increasedMemoryRequestKey] as? Bool, true)
+        XCTAssertNil(extensionInfo[SigningAdvanced.increasedMemoryRequestKey])
+        XCTAssertEqual(try SigningAdvanced.inspect(root).extensionCount, 1)
+        // This editor writes an explicit request, not a forged entitlement.
+        XCTAssertNil(main["com.apple.developer.kernel.increased-memory-limit"])
+    }
+
+    func testIncreasedMemoryLimitOffIsDefaultAndClearsUntrustedOrOldRequest() throws {
+        let (root, app) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let plistURL = app.url.appendingPathComponent("Info.plist")
+        var main = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: Data(contentsOf: plistURL), format: nil) as? [String: Any])
+        main[SigningAdvanced.increasedMemoryRequestKey] = true
+        try PropertyListSerialization.data(fromPropertyList: main, format: .xml, options: 0)
+            .write(to: plistURL)
+        try SigningAdvanced.customize(app, name: app.name, identifier: app.identifier,
+                                     iconPNG: nil)
+        let after = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: Data(contentsOf: plistURL), format: nil) as? [String: Any])
+        XCTAssertNil(after[SigningAdvanced.increasedMemoryRequestKey])
+    }
+
     func testRemoveAppExtensionsRetainsExecutableAndAppIdentity() throws {
         let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let executable = try Data(contentsOf: app.url.appendingPathComponent("Test"))
