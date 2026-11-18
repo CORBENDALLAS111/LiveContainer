@@ -10,6 +10,7 @@ struct LCEntitlementView : View {
     @State var isLiveProcess: Bool
     @State var loaded = false
     @State var entitlementReadSuccess = false
+    @State private var hostIncreasedMemory: Bool? = nil
     
     @State var teamId : String?
     @State var getTaskAllow = false
@@ -53,6 +54,17 @@ struct LCEntitlementView : View {
                             Spacer()
                             Text(getTaskAllow ? "lc.common.yes".loc : "lc.common.no".loc)
                                 .foregroundStyle(getTaskAllow ? .green : .red)
+                        }
+                        if !isLiveProcess {
+                            HStack {
+                                Text("lcos.memory.hostStatus".loc)
+                                Spacer()
+                                Text(hostIncreasedMemory == true ? "lc.common.yes".loc : "lc.common.no".loc)
+                                    .foregroundStyle(hostIncreasedMemory == true ? .green : .red)
+                            }
+                            Text("lcos.memory.hostStatusHelp".loc)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                         }
                         HStack {
                             Text("com.apple.security.application-groups \("lc.common.correct".loc)")
@@ -154,6 +166,16 @@ struct LCEntitlementView : View {
         }
         
         getTaskAllow = entitlementDict["get-task-allow"] as? Bool ?? false
+        if !isLiveProcess {
+            // Read the *running LC+ process*, not a build-time XML declaration
+            // or a guest IPA. Only Apple's installed code signature can grant
+            // the kernel entitlement used by apps executing in this process.
+            let task = SecTaskCreateFromSelf(nil)
+            hostIncreasedMemory =
+                (SecTaskCopyValueForEntitlement(task,
+                    "com.apple.developer.kernel.increased-memory-limit" as CFString,
+                    nil)?.takeRetainedValue() as? Bool) == true
+        }
 
     }
     
