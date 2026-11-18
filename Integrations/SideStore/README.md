@@ -98,9 +98,11 @@ profile granting the shared app group.
 
 ## Extra Memory for the LC+ host (not just guest IPA installs)
 
-The **integrated** `LifeContainer+SideStore.ipa` now carries a validated
-`LCOSIncreasedMemoryRequest.plist` for the **main `LiveContainer.app`**.
-The standalone build deliberately does not embed this request.
+The dedicated **`LifeContainer+SideStore-ExtraMemory.ipa`** now carries a
+validated `LCOSIncreasedMemoryRequest.plist` for the **main
+`LiveContainer.app`**. The ordinary `LifeContainer+SideStore.ipa` and
+standalone build remain unchanged and do not request the capability, so
+Apple accounts without Increased Memory permission can still install LC+.
 
 This marker is **not an entitlement**. When LC+ itself is signed through the
 updated embedded SideStore/SideSign pipeline (PR #9 and the host follow-up),
