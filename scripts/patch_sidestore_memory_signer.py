@@ -45,6 +45,10 @@ def patch(sidesign: pathlib.Path) -> dict:
                     throw SignerError.invalidApp(cause: "Apple provisioning profile does not grant Increased Memory Limit")
                 }
                 increasedMemoryRequested = true
+                // The request is transport metadata, not a persistent app
+                // resource. Strip it before the final code signature so
+                // refreshes only rely on the real signed entitlement.
+                try FileManager.default.removeItem(at: requestURL)
             }
 
             let applicationEntitlements = app.entitlements
