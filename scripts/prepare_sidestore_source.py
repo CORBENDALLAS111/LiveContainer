@@ -5,6 +5,46 @@ source=pathlib.Path(sys.argv[1]).resolve()
 expected=(root/'Integrations/SideStore/SOURCE_COMMIT').read_text().strip()
 actual=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
 assert actual==expected, 'SideStore source revision changed; review signing integration before rebuilding'
+
+# SideSign's pinned version accepts the entitlement for free teams but does not
+# register the Apple App ID capability. Apply the reviewed, exactly pinned
+# SideSign PR #4 patch (legacy App ID update + Developer Services v1 PATCH).
+# It is cherry-picked without a commit over SideStore's existing 2FA fix; do
+# not silently switch to an unreviewed nightly dependency revision.
+sidesign=source/'Dependencies/SideSign'
+sidesign_base='752d1ef602aa792a432ffa1e71646dc1ecf7363c'
+sidesign_memory_patch='9d89dac1d391c934e5c69be1fadbb090d9a7f944'
+assert subprocess.check_output(['git','-C',str(sidesign),'rev-parse','HEAD'],text=True).strip()==sidesign_base, 'SideSign submodule changed'
+subprocess.run(['git','-C',str(sidesign),'fetch','--no-tags','origin','refs/pull/4/head'],check=True)
+assert subprocess.check_output(['git','-C',str(sidesign),'rev-parse','FETCH_HEAD'],text=True).strip()==sidesign_memory_patch, 'SideSign memory capability patch changed'
+subprocess.run(['git','-C',str(sidesign),'cherry-pick','--no-commit',sidesign_memory_patch],check=True)
+expected_patch_files={'Sources/DeveloperPortal/AppIDs.swift','Sources/DeveloperPortal/DeveloperPortalAPI.swift',
+                      'Sources/Models/Feature.swift','Tests/SideSignTests/CapabilityTests.swift'}
+applied_patch_files=set(subprocess.check_output(
+    ['git','-C',str(sidesign),'diff','--cached','--name-only'],text=True).splitlines())
+assert applied_patch_files==expected_patch_files, 'Unexpected modified files in SideSign memory capability patch'
+
+# SideSign normally retains only entitlements already declared by the source
+# executable. A host user opt-in can request the capability for an IPA whose
+# existing binary does not declare it, but only if Apple's PROFILE actually
+# grants it. This narrowly scoped filter rule does not affect other bundles.
+signer=sidesign/'Sources/CodeSigning/CodeSignerAPI.swift'
+signed=signer.read_text(encoding='utf-8')
+needle='''            let applicationEntitlements = app.entitlements
+
+            for (key, _) in filteredEntitlements {'''
+assert signed.count(needle)==1
+signed=signed.replace(needle,'''            let applicationEntitlements = app.entitlements
+            let requestedMemory = !app.isExtension &&
+                (app.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true)
+            let memoryEntitlement = "com.apple.developer.kernel.increased-memory-limit"
+            if requestedMemory && (matchedProfile.entitlements[memoryEntitlement] as? Bool != true) {
+                throw SignerError.invalidApp(cause: "Apple provisioning profile does not grant Increased Memory Limit")
+            }
+
+            for (key, _) in filteredEntitlements {
+                if key == memoryEntitlement && requestedMemory { continue }''')
+signer.write_text(signed,encoding='utf-8')
 operation=source/'SideStore/Core/Operations/PipelineOperations/ResignAppOperation.swift'
 s=operation.read_text(encoding='utf-8')
 anchor='        let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])'
