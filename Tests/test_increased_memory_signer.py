@@ -45,6 +45,7 @@ class IncreasedMemorySignerTests(unittest.TestCase):
         self.assertIn("LCOSIncreasedMemoryRequest.plist", result)
         self.assertIn('profile.entitlements[memoryKey] as? Bool == true', result.replace("matchedProfile", "profile"))
         self.assertIn('!(key == memoryKey && increasedMemoryRequested)', result)
+        self.assertIn('try FileManager.default.removeItem(at: requestURL)', result)
         self.assertIn('if !app.isExtension && FileManager.default.fileExists', result)
         self.assertIn('requestBundle + "." + matchedProfile.teamIdentifier', result)
 
