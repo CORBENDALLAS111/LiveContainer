@@ -106,6 +106,46 @@ final class AdvancedInstallTests: XCTestCase {
         XCTAssertEqual(try SigningAdvanced.inspect(root).extensionCount, 1)
     }
 
+    func testIncreasedMemoryOptInCreatesValidatedSigningRequest() throws {
+        let (root, app) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        XCTAssertFalse(try SigningIncreasedMemory.requested(
+            in: app.url, bundleIdentifier: app.identifier))
+        try SigningAdvanced.customize(app, name: "More RAM",
+            identifier: "org.example.clone", iconPNG: nil,
+            options: .init(enableFileSharing: false, increasedMemoryLimit: true))
+        let edited = try SigningAdvanced.inspect(root)
+        XCTAssertTrue(try SigningIncreasedMemory.requested(
+            in: edited.url, bundleIdentifier: "org.example.clone"))
+        XCTAssertThrowsError(try SigningIncreasedMemory.requested(
+            in: edited.url, bundleIdentifier: "org.example.other"))
+        XCTAssertEqual(try Data(contentsOf: edited.url.appendingPathComponent("Test")),
+                       Data([1, 2, 3]))
+    }
+
+    func testDisabledMemoryOptionRemovesAnOldMarker() throws {
+        let (root, app) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try SigningIncreasedMemory.writeRequest(in: app.url,
+                                               bundleIdentifier: app.identifier)
+        XCTAssertTrue(try SigningIncreasedMemory.requested(
+            in: app.url, bundleIdentifier: app.identifier))
+        try SigningAdvanced.customize(app, name: "Normal",
+            identifier: app.identifier, iconPNG: nil,
+            options: .init(enableFileSharing: false))
+        XCTAssertFalse(try SigningIncreasedMemory.requested(
+            in: app.url, bundleIdentifier: app.identifier))
+    }
+
+    func testMalformedMemoryRequestFailsClosed() throws {
+        let (root, app) = try fixture()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let path = app.url.appendingPathComponent(SigningIncreasedMemory.fileName)
+        try Data("invalid".utf8).write(to: path)
+        XCTAssertThrowsError(try SigningIncreasedMemory.requested(
+            in: app.url, bundleIdentifier: app.identifier))
+    }
+
     func testStreamingIPARoundTripAndLinkRejection() throws {
         let (root, app) = try fixture(); defer { try? FileManager.default.removeItem(at: root) }
         let output = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".ipa")

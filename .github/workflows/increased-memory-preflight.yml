@@ -1,0 +1,48 @@
+name: Increased Memory Limit - Signing Preflight
+on:
+  push:
+    branches: ['feature/sidestore-advanced-increased-memory']
+  pull_request:
+    paths:
+      - 'scripts/prepare_sidestore_source.py'
+      - 'scripts/patch_sidestore_memory_signer.py'
+      - 'scripts/verify_sidestore_source.py'
+      - 'LiveContainerSwiftUI/PackageManager/Core/SigningIncreasedMemory.swift'
+      - 'Integrations/SideStore/**'
+      - 'Tests/test_increased_memory_signer.py'
+permissions:
+  contents: read
+jobs:
+  signing-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test fail-closed signer overlay
+        run: |
+          python3 -m unittest discover -s Tests -p 'test_increased_memory_signer.py' -v
+          python3 -m py_compile scripts/prepare_sidestore_source.py scripts/patch_sidestore_memory_signer.py scripts/verify_sidestore_source.py
+      - uses: actions/checkout@v4
+        with:
+          repository: LiveContainer/SideStore
+          ref: ee3cc16a67f9fed766f79a0ed70938f0f8ad5a07
+          submodules: recursive
+          path: sidestore-source
+      - name: Apply overlay to pinned SideStore and SideSign sources
+        run: |
+          python3 scripts/prepare_sidestore_source.py sidestore-source
+          python3 scripts/verify_sidestore_source.py sidestore-source/LCOS_SOURCE.json
+      - name: Confirm strict signed entitlement and App ID request gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('sidestore-source')
+          sign=(root/'Dependencies/SideSign/Sources/CodeSigning/CodeSignerAPI.swift').read_text()
+          profile=(root/'SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift').read_text()
+          assert 'LCOSIncreasedMemoryRequest.plist' in sign
+          assert 'matchedProfile.entitlements[memoryKey] as? Bool == true' in sign
+          assert '!(key == memoryKey && increasedMemoryRequested)' in sign
+          assert 'profile.entitlements[.increasedMemoryLimit] as? Bool == true' in profile
+          assert 'targetFeatures[.increasedMemoryLimit] = "true"' in profile
+          print('Pinned signer and Apple portal preflight are wired; no Apple account used.')
+          PY

@@ -14,7 +14,7 @@ jobs:
         id: signing-cache
         with:
           path: artifacts/sidestore-source
-          key: sidestore-xcode26.2-${{ hashFiles('Integrations/SideStore/**', 'scripts/prepare_sidestore_source.py', 'LiveContainerSwiftUI/PackageManager/Core/Signing*.swift', 'LiveContainerSwiftUI/PackageManager/Core/PackageSHA256.swift', '.github/workflows/build-sidestore-source.yml') }}
+          key: sidestore-xcode26.2-${{ hashFiles('Integrations/SideStore/**', 'scripts/prepare_sidestore_source.py', 'scripts/patch_sidestore_memory_signer.py', 'LiveContainerSwiftUI/PackageManager/Core/Signing*.swift', 'LiveContainerSwiftUI/PackageManager/Core/PackageSHA256.swift', '.github/workflows/build-sidestore-source.yml') }}
       - uses: actions/checkout@v6
         if: steps.signing-cache.outputs.cache-hit != 'true'
         with:

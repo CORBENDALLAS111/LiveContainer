@@ -5,6 +5,13 @@ source=pathlib.Path(sys.argv[1]).resolve()
 expected=(root/'Integrations/SideStore/SOURCE_COMMIT').read_text().strip()
 actual=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
 assert actual==expected, 'SideStore source revision changed; review signing integration before rebuilding'
+# SideSign is a pinned git submodule of the pinned SideStore checkout.
+# Its normal signer removes capability entitlements absent from the original IPA;
+# patch that filter only for an explicitly requested, Apple-granted profile.
+memory_patch=json.loads(subprocess.check_output([
+    sys.executable, str(root/'scripts/patch_sidestore_memory_signer.py'),
+    str(source/'Dependencies/SideSign')
+],text=True))
 operation=source/'SideStore/Core/Operations/PipelineOperations/ResignAppOperation.swift'
 s=operation.read_text(encoding='utf-8')
 anchor='        let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])'
@@ -17,6 +24,57 @@ s=s.replace(anchor, '''        if context.useMainProfile, identifier != context.
         }
 '''+anchor)
 operation.write_text(s,encoding='utf-8')
+
+# Reject missing entitlement in the fetched Apple profile even when an App ID
+# capability was accepted. Do not let signing proceed with a false success.
+profile_operation=source/'SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift'
+sp=profile_operation.read_text(encoding='utf-8')
+# Preserve portal features owned by other services when enabling Increased RAM.
+anchor='''        // check if we really need to make a update on portal'''
+assert sp.count(anchor)==1
+sp=sp.replace(anchor,'''        let memoryRequested = try SigningIncreasedMemory.requested(
+            in: targetAppBundle.fileURL, bundleIdentifier: bundleID)
+        if memoryRequested {
+            // GetMoreRam's Apple Developer Portal capability. SideSign's
+            // normal free-team feature allowlist does not include it, so the
+            // explicitly opted-in request is sent to Apple and may be denied.
+            targetFeatures[.increasedMemoryLimit] = "true"
+            SigningDiagnostics.record("memory.capability.requested", appID.bundleIdentifier)
+        }
+
+'''+anchor)
+anchor='''        appID.features = targetFeatures'''
+assert sp.count(anchor)==1
+sp=sp.replace(anchor,'''        if memoryRequested {
+            var combined = appID.features
+            combined.merge(targetFeatures) { _, request in request }
+            appID.features = combined
+        } else {
+            appID.features = targetFeatures
+        }''')
+anchor='''        return profile
+    }
+}
+
+
+private extension FetchProvisioningProfilesOperation{'''
+assert sp.count(anchor)==1
+sp=sp.replace(anchor,'''        if try SigningIncreasedMemory.requested(
+            in: targetAppBundle.fileURL, bundleIdentifier: targetAppBundle.bundleIdentifier) {
+            guard profile.entitlements[.increasedMemoryLimit] as? Bool == true else {
+                throw OperationError.invalidParameters(
+                    "Apple did not grant Increased Memory Limit in the provisioning profile. "
+                    + "Review App ID capabilities and retry signing.")
+            }
+            SigningDiagnostics.record("memory.profile.granted", groupAppID.bundleIdentifier)
+        }
+        return profile
+    }
+}
+
+
+private extension FetchProvisioningProfilesOperation{''')
+profile_operation.write_text(sp,encoding='utf-8')
 
 extension_operation=source/'SideStore/Core/Operations/PipelineOperations/PrepareAppExtensionBundleIDsOperation.swift'
 s=extension_operation.read_text(encoding='utf-8')
@@ -150,10 +208,18 @@ s=s.replace(anchor,'''    @MainActor
 '''+anchor)
 handler.write_text(s,encoding='utf-8')
 destination=source/'SideStore/Core/LCOSSigningInjection';destination.mkdir(exist_ok=True)
-files=[root/'Integrations/SideStore'/name for name in ['LCOSSigningInjection.swift','LCOSSigningInjectionUI.swift']]+[root/'LiveContainerSwiftUI/PackageManager/Core'/name for name in ['SigningMachO.swift','SigningInjectionPreset.swift','SigningBundleIdentifiers.swift','PackageSHA256.swift','SigningDiagnostics.swift']]
+files=[root/'Integrations/SideStore'/name for name in ['LCOSSigningInjection.swift','LCOSSigningInjectionUI.swift']]+[root/'LiveContainerSwiftUI/PackageManager/Core'/name for name in ['SigningMachO.swift','SigningInjectionPreset.swift','SigningBundleIdentifiers.swift','PackageSHA256.swift','SigningDiagnostics.swift','SigningIncreasedMemory.swift']]
 for file in files:shutil.copyfile(file,destination/file.name)
 manifest={'schema':1,'integration_script_sha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'resign_operation_sha256':hashlib.sha256(operation.read_bytes()).hexdigest(),'repository':'LiveContainer/SideStore','commit':actual,'overlay':{file.name:hashlib.sha256(file.read_bytes()).hexdigest() for file in files},'signing_phase':'after bundle preparation, before ALTSigner.signApp'}
 manifest['install_ui']={'executor_sha256':hashlib.sha256(executor.read_bytes()).hexdigest(),'handler_sha256':hashlib.sha256(handler.read_bytes()).hexdigest(),'phase':'advanced configuration in host; no guest framework loading', 'host_ui_only':True, 'pipeline_diagnostics':True, 'picker_owned_copy':True, 'picker_sha256':hashlib.sha256(myapps.read_bytes()).hexdigest(), 'download_sha256':hashlib.sha256(download.read_bytes()).hexdigest()}
 manifest['extension_ids']={'prepare_sha256':hashlib.sha256(extension_operation.read_bytes()).hexdigest(),'validate_before_signing':True}
+manifest['memory_capability']={
+    'policy':'opt-in advanced IPA only; Apple App ID and provisioning profile required',
+    'entitlement':'com.apple.developer.kernel.increased-memory-limit',
+    'sidesign_patch_script_sha256':hashlib.sha256((root/'scripts/patch_sidestore_memory_signer.py').read_bytes()).hexdigest(),
+    'sidesign':memory_patch,
+    'profile_operation_sha256':hashlib.sha256(profile_operation.read_bytes()).hexdigest(),
+    'signature_requires_profile':True
+}
 (source/'LCOS_SOURCE.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest,indent=2))

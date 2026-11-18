@@ -16,6 +16,7 @@ struct LCAdvancedInstallView: View {
     @State private var identifier = ""
     @State private var ipaFilename = ""
     @State private var enableFileSharing = false
+    @State private var increasedMemoryLimit = false
     @State private var excludedExtensions: Set<String> = []
     @State private var managingExtensions = false
     @State private var icon: Data?
@@ -154,6 +155,14 @@ struct LCAdvancedInstallView: View {
             Toggle(isOn: $enableFileSharing) {
                 Label("lcos.install.fileSharing".installLoc, systemImage: "folder")
             }
+            Toggle(isOn: $increasedMemoryLimit) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("lcos.install.increasedMemory".installLoc, systemImage: "memorychip")
+                    Text("lcos.install.increasedMemorySubtitle".installLoc)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if app.extensionCount > 0 {
                 Button { managingExtensions = true } label: {
                     HStack(spacing: 12) {
@@ -177,7 +186,12 @@ struct LCAdvancedInstallView: View {
         } header: {
             Text("lcos.install.options".installLoc)
         } footer: {
-            Text("lcos.install.fileSharingHelp".installLoc)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("lcos.install.fileSharingHelp".installLoc)
+                if increasedMemoryLimit {
+                    Text("lcos.install.increasedMemoryHelp".installLoc)
+                }
+            }
         }
         .disabled(working)
     }
@@ -357,7 +371,9 @@ struct LCAdvancedInstallView: View {
                 if let workspace { try? FileManager.default.removeItem(at: workspace) }
                 workspace = directory; app = inspected; name = inspected.name; identifier = inspected.identifier
                 ipaFilename = source.lastPathComponent; icon = nil
-                enableFileSharing = inspected.fileSharingEnabled; excludedExtensions.removeAll()
+                enableFileSharing = inspected.fileSharingEnabled
+                increasedMemoryLimit = false
+                excludedExtensions.removeAll()
                 SigningDiagnostics.record("advanced.extract.end", inspected.identifier)
             } catch { try? FileManager.default.removeItem(at: directory); throw error }
         } catch { SigningDiagnostics.failure("advanced.extract.failed", error); failure = error.localizedDescription }
@@ -370,7 +386,8 @@ struct LCAdvancedInstallView: View {
         let icon = icon
         let options = SigningAdvanced.Options(enableFileSharing: enableFileSharing,
                                               removeAppExtensions: false,
-                                              excludedExtensionNames: excludedExtensions)
+                                              excludedExtensionNames: excludedExtensions,
+                                              increasedMemoryLimit: increasedMemoryLimit)
         do {
             guard let group = LCSharedUtils.appGroupPath() else { throw SigningInjectionFailure.invalid("Shared app group unavailable") }
             let root = group.appendingPathComponent("LiveContainer/SigningInjection")
