@@ -5,6 +5,110 @@ source=pathlib.Path(sys.argv[1]).resolve()
 expected=(root/'Integrations/SideStore/SOURCE_COMMIT').read_text().strip()
 actual=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
 assert actual==expected, 'SideStore source revision changed; review signing integration before rebuilding'
+
+# SideSign's pinned version accepts the entitlement for free teams but does not
+# register the Apple App ID capability. Apply the reviewed, exactly pinned
+# SideSign PR #4 patch (legacy App ID update + Developer Services v1 PATCH).
+# It is cherry-picked without a commit over SideStore's existing 2FA fix; do
+# not silently switch to an unreviewed nightly dependency revision.
+sidesign=source/'Dependencies/SideSign'
+sidesign_base='752d1ef602aa792a432ffa1e71646dc1ecf7363c'
+sidesign_memory_patch='9d89dac1d391c934e5c69be1fadbb090d9a7f944'
+assert subprocess.check_output(['git','-C',str(sidesign),'rev-parse','HEAD'],text=True).strip()==sidesign_base, 'SideSign submodule changed'
+subprocess.run(['git','-C',str(sidesign),'fetch','--no-tags','origin','refs/pull/4/head'],check=True)
+assert subprocess.check_output(['git','-C',str(sidesign),'rev-parse','FETCH_HEAD'],text=True).strip()==sidesign_memory_patch, 'SideSign memory capability patch changed'
+subprocess.run(['git','-C',str(sidesign),'cherry-pick','--no-commit',sidesign_memory_patch],check=True)
+expected_patch_files={'Sources/DeveloperPortal/AppIDs.swift','Sources/DeveloperPortal/DeveloperPortalAPI.swift',
+                      'Sources/Models/Feature.swift','Tests/SideSignTests/CapabilityTests.swift'}
+applied_patch_files=set(subprocess.check_output(
+    ['git','-C',str(sidesign),'diff','--cached','--name-only'],text=True).splitlines())
+assert applied_patch_files==expected_patch_files, 'Unexpected modified files in SideSign memory capability patch'
+
+# SideSign normally retains only entitlements already declared by the source
+# executable. A host user opt-in can request the capability for an IPA whose
+# existing binary does not declare it, but only if Apple's PROFILE actually
+# grants it. This narrowly scoped filter rule does not affect other bundles.
+signer=sidesign/'Sources/CodeSigning/CodeSignerAPI.swift'
+signed=signer.read_text(encoding='utf-8')
+needle='''            let applicationEntitlements = app.entitlements
+
+            for (key, _) in filteredEntitlements {'''
+assert signed.count(needle)==1
+signed=signed.replace(needle,'''            let applicationEntitlements = app.entitlements
+            let requestedMemory = !app.isExtension &&
+                (app.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true)
+            let memoryEntitlement = "com.apple.developer.kernel.increased-memory-limit"
+            if requestedMemory && (matchedProfile.entitlements[memoryEntitlement] as? Bool != true) {
+                throw SignerError.invalidApp(cause: "Apple provisioning profile does not grant Increased Memory Limit")
+            }
+
+            for (key, _) in filteredEntitlements {
+                if key == memoryEntitlement && requestedMemory { continue }''')
+signer.write_text(signed,encoding='utf-8')
+# Only Advanced Install opts in. The SideStore pipeline is the only component
+# that can update the registered Apple App ID and obtain the provisioning
+# profile; the host IPA editor must never claim to grant the entitlement.
+profiles_operation=source/'SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift'
+profile_source=profiles_operation.read_text(encoding='utf-8')
+anchor='''        let effectiveBundleId = self.context.targetBundleIdentifier
+
+        let appExtensions = targetAppBundle.appExtensions'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let effectiveBundleId = self.context.targetBundleIdentifier
+        let memoryRequested = targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true
+
+        let appExtensions = targetAppBundle.appExtensions''')
+anchor='''        if let overrideProfile = self.context.overrideProvisioningProfile {
+            self.debugLog'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        if let overrideProfile = self.context.overrideProvisioningProfile {
+            if memoryRequested && (overrideProfile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool != true) {
+                SigningDiagnostics.record("memory.profile.missing", effectiveBundleId, level: "error")
+                throw OperationError.invalidParameters("Selected provisioning profile does not grant Increased Memory Limit")
+            }
+            if memoryRequested {
+                SigningDiagnostics.record("memory.profile.granted", effectiveBundleId)
+            }
+            self.debugLog''')
+anchor='''        let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
+        self.debugLog'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
+        // A successful Apple API request is not proof of an approved
+        // entitlement; verify the actual issued provisioning profile. Never
+        // silently install a normal-memory app when the user opted in.
+        if parentAppBundle == nil &&
+           targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true {
+            guard profile.entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool == true else {
+                SigningDiagnostics.record("memory.profile.missing", groupAppID.bundleIdentifier, level: "error")
+                throw OperationError.invalidParameters("Apple did not grant Increased Memory Limit to the provisioning profile")
+            }
+            // This records an issued Apple profile, NOT a completed install.
+            SigningDiagnostics.record("memory.profile.granted", groupAppID.bundleIdentifier)
+        }
+        self.debugLog''')
+anchor='''        // check if we really need to make a update on portal
+        let currentFeatures = appID.features'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        let memoryRequested = targetAppBundle.bundleIdentifier == self.context.targetAppBundle?.bundleIdentifier &&
+            (targetAppBundle.infoPlist["LCOSIncreasedMemoryLimitRequested"] as? Bool == true)
+        if memoryRequested {
+            guard allowedFeatures.contains(.increasedMemoryLimit) else {
+                throw OperationError.invalidParameters("Increased Memory Limit is not available for this signing team")
+            }
+            targetFeatures[.increasedMemoryLimit] = "true"
+            SigningDiagnostics.record("memory.capability.requested", appID.bundleIdentifier)
+        }
+
+        // check if we really need to make a update on portal
+        let currentFeatures = appID.features''')
+anchor='''        let needsUpdate = targetFeatures.contains { feature, targetValue in'''
+assert profile_source.count(anchor)==1
+profile_source=profile_source.replace(anchor,'''        // The older App ID listing may not reflect the v1 memory capability.
+        // Repeat this idempotent request on explicit Advanced Install opt-in.
+        let needsUpdate = memoryRequested || targetFeatures.contains { feature, targetValue in''')
+profiles_operation.write_text(profile_source,encoding='utf-8')
+
 operation=source/'SideStore/Core/Operations/PipelineOperations/ResignAppOperation.swift'
 s=operation.read_text(encoding='utf-8')
 anchor='        let appBundleURL = try await self.prepareAppBundle(for: appBundle, profiles: profiles, appexBundleIds: context.appexBundleIds ?? [:])'
@@ -155,5 +259,18 @@ for file in files:shutil.copyfile(file,destination/file.name)
 manifest={'schema':1,'integration_script_sha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'resign_operation_sha256':hashlib.sha256(operation.read_bytes()).hexdigest(),'repository':'LiveContainer/SideStore','commit':actual,'overlay':{file.name:hashlib.sha256(file.read_bytes()).hexdigest() for file in files},'signing_phase':'after bundle preparation, before ALTSigner.signApp'}
 manifest['install_ui']={'executor_sha256':hashlib.sha256(executor.read_bytes()).hexdigest(),'handler_sha256':hashlib.sha256(handler.read_bytes()).hexdigest(),'phase':'advanced configuration in host; no guest framework loading', 'host_ui_only':True, 'pipeline_diagnostics':True, 'picker_owned_copy':True, 'picker_sha256':hashlib.sha256(myapps.read_bytes()).hexdigest(), 'download_sha256':hashlib.sha256(download.read_bytes()).hexdigest()}
 manifest['extension_ids']={'prepare_sha256':hashlib.sha256(extension_operation.read_bytes()).hexdigest(),'validate_before_signing':True}
+manifest['increased_memory_limit']={
+    'sidesign_base':sidesign_base,
+    'sidesign_capability_patch':sidesign_memory_patch,
+    'feature':'INCREASED_MEMORY_LIMIT',
+    'entitlement':'com.apple.developer.kernel.increased-memory-limit',
+    'developer_portal_source_sha256':hashlib.sha256(
+        (sidesign/'Sources/DeveloperPortal/AppIDs.swift').read_bytes()).hexdigest(),
+    'profile_operation_sha256':hashlib.sha256(profiles_operation.read_bytes()).hexdigest(),
+    'signer_sha256':hashlib.sha256(signer.read_bytes()).hexdigest(),
+    'profile_validation':True,
+    'signer_requires_profile':True,
+    'host_opt_in_only':True
+}
 (source/'LCOS_SOURCE.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest,indent=2))

@@ -47,10 +47,11 @@ bundle ID or icon, and configure supported dylib/DEB injection presets before pr
   When enabled, `LSSupportsOpeningDocumentsInPlace` is also set so the app's Documents
   directory is available to Files. It does not expose unrelated sandbox directories.
   The original value is displayed on load and preserved by default.
-- **Remove App Extensions** is visible only when the IPA contains `.appex` bundles in
-  `PlugIns`. It is disabled by default, removes those extension bundles from the
-  staged copy and may break extension-dependent features such as widgets and sharing.
-  Other embedded resources and executables are retained.
+- **Manage App Extensions** is visible only when the IPA contains `.appex` bundles in
+  `PlugIns`. Every extension is retained by default; selected extensions can be
+  omitted individually from the staging copy. Removing extensions may break
+  extension-dependent features such as widgets and sharing. Other resources
+  and executables remain untouched.
 - **Manage injected libraries** opens the existing validated injection preset UI, keyed
   to the effective bundle ID. No unsupported device-limit bypass or fictitious Apple
   account/signing selector is offered.
@@ -59,6 +60,58 @@ The advanced editor never signs or installs itself: it creates a prepared IPA fr
 private staging directory and hands it back to SideStore. Signing, provisioning,
 installation and their errors still belong to the real SideStore pipeline. Empty/invalid
 choices fail before handoff. Cancel leaves the original IPA untouched.
+
+## Increased Memory Limit (GetMoreRam workflow)
+
+The **Increased Memory Limit** toggle in Advanced Install is **off by default**. It
+prepares a user-requested installation option, not a forged Apple entitlement.
+The host adds the internal `LCOSIncreasedMemoryLimitRequested` marker to the
+**main application only** in the disposable IPA copy. Clearing the toggle
+also clears a pre-existing marker; extensions are unaffected.
+
+During the *real* source-built SideStore install pipeline:
+1. SideStore finds or creates the Apple App ID for the **effective signed bundle
+   identifier**, using the account already signed in to SideStore.
+2. `FetchProvisioningProfilesOperation` requests the
+   `INCREASED_MEMORY_LIMIT` capability on that App ID before downloading
+   a new provisioning profile. The pinned SideSign patch uses Apple Developer
+   Services' v1 `bundleIdCapabilities` PATCH (the mechanism used by
+   [GetMoreRam](https://github.com/hugeBlack/GetMoreRam)).
+3. The operation checks the **actual profile** contains
+   `com.apple.developer.kernel.increased-memory-limit = true`.
+   If not, installation **fails with a visible error**, rather than silently
+   proceeding with a normal-memory profile. A user-selected override profile
+   without the entitlement is rejected as well.
+4. The pinned SideSign signer may retain this entitlement **only for an opted-in
+   main app whose provisioning profile explicitly grants it**. It never grants
+   it to app extensions or to apps installed by the ordinary workflow.
+
+A profile entitlement does not add physical RAM or promise a fixed memory
+budget; the memory budget is device- and iOS-dependent. Internet access,
+Apple account authentication and Apple's approval are necessary. After
+installing, a device test must inspect both the installed app's signature
+and its provisioning profile to prove the entitlement actually survived.
+
+The feature does not modify the original input IPA, bypass signature checks,
+revoke another App ID, or change the ordinary installation/refresh flow.
+Account credentials remain managed exclusively by SideStore. We do **not**
+ship or embed GetMoreRam or ask the user to log in to a second service.
+
+### Pinned dependency / safety gate
+
+`scripts/prepare_sidestore_source.py` checks out the existing SideStore
+revision and its SideSign `752d1ef` submodule, then cherry-picks the
+**exact** SideSign pull request
+[SideSign #4](https://github.com/SideStore/SideSign/pull/4) commit
+`9d89dac1d391c934e5c69be1fadbb090d9a7f944` *without committing*.
+The patch request's HEAD must match the pinned SHA, and the modified file
+list is verified. It keeps SideStore's existing 2FA fix. The builder patches
+the memory-only signer check, verifies the profile operation, runs the
+SideSign `CapabilityTests`, and records the source hashes in the build
+manifest. The IPA verifier refuses an artifact lacking this provenance.
+
+This is an experimental feature until real Apple profile/signature verification
+on an iPhone. A green Xcode build cannot establish an increased memory budget.
 
 ## Extension bundle identifiers
 

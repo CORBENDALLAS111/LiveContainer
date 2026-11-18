@@ -29,6 +29,12 @@ jobs:
       - name: Apply reviewed signing overlay
         if: steps.signing-cache.outputs.cache-hit != 'true'
         run: python3 scripts/prepare_sidestore_source.py sidestore-source
+      - name: Test pinned Increased Memory Limit Apple capability requests
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        working-directory: sidestore-source/Dependencies/SideSign
+        run: |
+          set -o pipefail
+          swift test --filter CapabilityTests 2>&1 | tee ../../../sidesign-memory-tests.log
       - name: Archive custom SideStore
         if: steps.signing-cache.outputs.cache-hit != 'true'
         working-directory: sidestore-source
@@ -62,5 +68,7 @@ jobs:
         if: always()
         with:
           name: sidestore-source-logs
-          path: sidestore-build.log
+          path: |
+            sidestore-build.log
+            sidesign-memory-tests.log
           if-no-files-found: warn
