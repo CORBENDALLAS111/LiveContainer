@@ -29,8 +29,6 @@ operation.write_text(s,encoding='utf-8')
 # capability was accepted. Do not let signing proceed with a false success.
 profile_operation=source/'SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift'
 sp=profile_operation.read_text(encoding='utf-8')
-anchor='''        self.debugLog("[FetchProvisioningProfiles] Updating app groups for App ID \\(updatedAppID.bundleIdentifier)...")'''
-assert sp.count(anchor)==1
 # Preserve portal features owned by other services when enabling Increased RAM.
 anchor='''        // check if we really need to make a update on portal'''
 assert sp.count(anchor)==1
