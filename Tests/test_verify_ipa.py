@@ -6,7 +6,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[1] / 'scripts'))
-from verify_ipa import verify_frameworks
+from verify_ipa import verify_frameworks, verify_host_memory_request
 
 
 class EmbeddedFrameworkTests(unittest.TestCase):
@@ -25,6 +25,27 @@ class EmbeddedFrameworkTests(unittest.TestCase):
         # Header-only test data exercises structural verification, not signing.
         return {folder + 'Info.plist': plistlib.dumps(info),
                 folder + 'Runtime': bytes.fromhex('cffaedfe')}
+
+    def test_integrated_host_request_is_real_lc_app_not_guest(self):
+        root = 'Payload/LiveContainer.app/'
+        info = {'CFBundleIdentifier': 'com.kdt.livecontainer'}
+        marker = root + 'LCOSIncreasedMemoryRequest.plist'
+        payload = {'schema': 1, 'requested': True,
+                   'bundleIdentifier': 'com.kdt.livecontainer'}
+        with self.archive({marker: plistlib.dumps(payload)}) as archive:
+            report = verify_host_memory_request(archive, root, info)
+            self.assertTrue(report['host_requested'])
+            self.assertFalse(report['apple_profile_granted'])
+            self.assertFalse(report['installed_memory_entitlement_verified'])
+
+        with self.archive({}) as archive:
+            with self.assertRaisesRegex(ValueError, 'host lacks Increased'):
+                verify_host_memory_request(archive, root, info)
+
+        payload['bundleIdentifier'] = 'com.example.guest'
+        with self.archive({marker: plistlib.dumps(payload)}) as archive:
+            with self.assertRaisesRegex(ValueError, 'does not match'):
+                verify_host_memory_request(archive, root, info)
 
     def test_missing_stikjit_plist_reproduces_install_failure(self):
         folder = 'Payload/App.app/Frameworks/StikJIT.framework/'
