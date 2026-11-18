@@ -86,5 +86,11 @@ find Payload -type d -name "_CodeSignature" -exec rm -r {} +
 
 ldid -S.github/sidelc/LiveWidgetExtension_adhoc.xml ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
 
+# Unlike guest IPA toggles, this request is for the LC+ *host* executable.
+# The SideStore signer will enable Apple's App ID capability, verify that the
+# downloaded profile grants it, then consume the request before signing.
+# Keep the standalone output unchanged; embed in the integrated IPA only.
+python3 scripts/prepare_host_memory_request.py ./Payload/LiveContainer.app --entitlements entitlements.xml
+
 # package
 zip -r "$scheme+SideStore.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
