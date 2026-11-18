@@ -42,6 +42,37 @@ def verify_frameworks(archive):
     return len(frameworks)
 
 
+
+def verify_host_memory_request(archive, root, info):
+    """Assert LC+ host will explicitly request Apple capability when re-signed.
+
+    This is preparation evidence; an IPA's unsigned metadata cannot prove that
+    an actual Apple provisioning profile or installed signature grants memory.
+    """
+    entry = root + "LCOSIncreasedMemoryRequest.plist"
+    try:
+        blob = archive.read(entry)
+    except KeyError as error:
+        raise ValueError("Integrated LC+ host lacks Increased Memory Limit request") from error
+    if len(blob) > 4096:
+        raise ValueError("Host Increased Memory Limit request exceeds size limit")
+    try:
+        payload = plistlib.loads(blob)
+    except (ValueError, plistlib.InvalidFileException) as error:
+        raise ValueError("Invalid LC+ host memory request plist") from error
+    if payload != {
+        "schema": 1,
+        "requested": True,
+        "bundleIdentifier": info["CFBundleIdentifier"],
+    }:
+        raise ValueError("LC+ host memory request does not match final app identity")
+    return {
+        "host_requested": True,
+        "installed_memory_entitlement_verified": False,
+        "apple_profile_granted": False,
+    }
+
+
 def verify(path, integrated=False, source_commit=None, signing_injection=False, automations=False, builtin_jit=False):
     path = pathlib.Path(path)
     if not path.is_file() or path.stat().st_size == 0:
@@ -84,6 +115,7 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                     raise ValueError('Missing integrated component: ' + suffix)
             if 'group.com.SideStore.SideStore' not in info.get('ALTAppGroups', []):
                 raise ValueError('Missing SideStore app group declaration')
+            host_memory_evidence = verify_host_memory_request(archive, root, info)
         if signing_injection:
             side = root + 'Frameworks/SideStoreApp.framework/'
             manifest = json.loads(archive.read(side + 'LCOSSigningIntegration.json'))
@@ -129,7 +161,8 @@ def verify(path, integrated=False, source_commit=None, signing_injection=False, 
                 'bundle': info['CFBundleIdentifier'], 'signing_injection': signing_injection, 'integrated': integrated, 'entries': len(names),
                 'frameworks_checked': framework_count,
                 'source_commit': source_commit, 'automation_metadata': automations,
-                'verification': 'ZIP integrity and expected components only', 'device_tested': False}
+                'verification': 'ZIP integrity and expected components only', 'device_tested': False,
+                'host_memory_request': host_memory_evidence if integrated else None}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
