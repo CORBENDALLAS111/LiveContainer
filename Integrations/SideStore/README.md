@@ -47,10 +47,11 @@ bundle ID or icon, and configure supported dylib/DEB injection presets before pr
   When enabled, `LSSupportsOpeningDocumentsInPlace` is also set so the app's Documents
   directory is available to Files. It does not expose unrelated sandbox directories.
   The original value is displayed on load and preserved by default.
-- **Remove App Extensions** is visible only when the IPA contains `.appex` bundles in
-  `PlugIns`. It is disabled by default, removes those extension bundles from the
-  staged copy and may break extension-dependent features such as widgets and sharing.
-  Other embedded resources and executables are retained.
+- **Manage App Extensions** is visible only when the IPA contains `.appex` bundles in
+  `PlugIns`. Every extension is retained by default; selected extensions can be
+  omitted individually from the staging copy. Removing extensions may break
+  extension-dependent features such as widgets and sharing. Other resources
+  and executables remain untouched.
 - **Manage injected libraries** opens the existing validated injection preset UI, keyed
   to the effective bundle ID. No unsupported device-limit bypass or fictitious Apple
   account/signing selector is offered.
