@@ -51,6 +51,23 @@ bundle ID or icon, and configure supported dylib/DEB injection presets before pr
   `PlugIns`. It is disabled by default, removes those extension bundles from the
   staged copy and may break extension-dependent features such as widgets and sharing.
   Other embedded resources and executables are retained.
+- **Increased Memory Limit** is an explicit opt-in based on
+  [GetMoreRam](https://github.com/hugeBlack/GetMoreRam). It does not allocate RAM or
+  edit `Info.plist` to fake an entitlement. The advanced editor adds a small
+  validated request to its disposable IPA. When the embedded SideStore signs
+  this IPA, its existing authenticated Apple Developer Portal session requests
+  the `increasedMemoryLimit` capability on the effective App ID, then downloads
+  a new provisioning profile. If the profile does not grant
+  `com.apple.developer.kernel.increased-memory-limit=true`, signing **fails
+  explicitly**. The pinned SideSign submodule is patched only to preserve
+  this granted entitlement for the opted-in main app's signed executable.
+  Other signing operations and extensions retain their ordinary filtering.
+  No additional Apple-account credentials are requested. Apple may reject the
+  capability; actual memory benefits depend on the device and app, and the
+  entitlement applies only after reinstalling a successfully signed app.
+  Guest applications launched inside LifeContainer use the **host's** process
+  memory entitlement, so this option does not retroactively raise the host's
+  limit; the host itself must separately be provisioned and reinstalled.
 - **Manage injected libraries** opens the existing validated injection preset UI, keyed
   to the effective bundle ID. No unsupported device-limit bypass or fictitious Apple
   account/signing selector is offered.
