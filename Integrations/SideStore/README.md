@@ -94,3 +94,33 @@ App Groups entitlement even when a profile contains it. The result is the purple
 not start” screen. Both the source IPA and final integrated IPA now reject a missing declaration.
 This check does not grant entitlements: the final device installation still needs a valid provisioning
 profile granting the shared app group.
+
+
+## Extra Memory for the LC+ host (not just guest IPA installs)
+
+The **integrated** `LifeContainer+SideStore.ipa` now carries a validated
+`LCOSIncreasedMemoryRequest.plist` for the **main `LiveContainer.app`**.
+The standalone build deliberately does not embed this request.
+
+This marker is **not an entitlement**. When LC+ itself is signed through the
+updated embedded SideStore/SideSign pipeline (PR #9 and the host follow-up),
+SideStore requests the Increased Memory Limit capability on the actual Apple
+App ID, verifies the returned provisioning profile, and SideSign signs
+`com.apple.developer.kernel.increased-memory-limit` only if Apple granted it.
+The request is rebound to the final signed bundle identifier and consumed
+before signing. Later refreshes preserve an already authorized capability.
+
+To verify an installed device: open **LC+ → Settings → Extra Memory · LC+**.
+This reads the real `SecTaskCopyValueForEntitlement` value of LC+'s running
+process. `Yes` means the installed host has the entitlement; `No` means it
+does not. This does **not** guarantee a specific amount of memory on a device.
+
+Important: existing installed copies cannot gain extra memory by updating an
+IPA setting or installing a guest app. Re-sign/reinstall **the host itself**
+with the appropriate authorized Apple account and a profile granting the
+capability. Preserve the existing bundle identity where possible and **back
+up LC+ user containers before any replacement**, especially if the installer
+proposes deleting the previous app. Apple's portal can refuse the capability;
+then the signing flow must fail visibly rather than silently install LC+
+without the entitlement. Other sideloading services that ignore the marker
+cannot be treated as supporting this automatic request.
