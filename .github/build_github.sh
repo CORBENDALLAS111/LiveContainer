@@ -86,11 +86,13 @@ find Payload -type d -name "_CodeSignature" -exec rm -r {} +
 
 ldid -S.github/sidelc/LiveWidgetExtension_adhoc.xml ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
 
-# Unlike guest IPA toggles, this request is for the LC+ *host* executable.
-# The SideStore signer will enable Apple's App ID capability, verify that the
-# downloaded profile grants it, then consume the request before signing.
-# Keep the standalone output unchanged; embed in the integrated IPA only.
-python3 scripts/prepare_host_memory_request.py ./Payload/LiveContainer.app --entitlements entitlements.xml
-
-# package
+# Preserve the usual integrated build for Apple accounts that cannot
+# obtain the Increased Memory Limit entitlement.
 zip -r "$scheme+SideStore.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
+
+# A separate *host* Extra Memory variant. SideStore must use its Apple
+# Developer Portal session to enable the capability, verify the downloaded
+# profile, and sign the LC+ main process with the granted entitlement.
+# This marker is in the extra variant ONLY, not the normal integrated IPA.
+python3 scripts/prepare_host_memory_request.py ./Payload/LiveContainer.app --entitlements entitlements.xml
+zip -r "$scheme+SideStore-ExtraMemory.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
