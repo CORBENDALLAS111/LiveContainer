@@ -33,6 +33,22 @@ final class HomeScreenCoreTests: XCTestCase {
             XCTAssertGreaterThan(value.capacity, 0)
         }
     }
+    func testCompactIPadAndAccessibilityGridNeverOverflows() {
+        let compact = LCHomeMetrics(width: 260, height: 600, tablet: true, mini: false)
+        XCTAssertLessThan(compact.columns, 4)
+        let accessible = LCHomeMetrics(width: 402, height: 680, tablet: false, mini: false, accessibility: true)
+        XCTAssertLessThan(accessible.columns, 4)
+        for width in [260.0, 320, 375, 402, 430, 600, 744, 1024, 1366] {
+            for accessibility in [false, true] {
+                let metrics = LCHomeMetrics(width: width, height: 800, tablet: true,
+                                            mini: false, accessibility: accessibility)
+                XCTAssertGreaterThan(metrics.columns, 0)
+                XCTAssertLessThanOrEqual(Double(metrics.columns) * (metrics.iconSide + 18)
+                                         + 2 * metrics.horizontalInset, width + 1)
+            }
+        }
+    }
+
     func testLargeHomeInventoryIsNeverTruncatedToPageCapacity() {
         let inventory = (0..<240).map { "org.example.guest\($0):Guest\($0).app" }
         let metrics = LCHomeMetrics(width: 402, height: 680, tablet: false, mini: false)
