@@ -51,6 +51,8 @@ jobs:
         run: |
           set -o pipefail
           python3 -m unittest discover -s Tests -p 'test_*.py'
+          xcrun --sdk macosx clang -fobjc-arc -framework Foundation Tests/GuestPrivacyPolicyTests.m -o /tmp/guest-privacy-policy-tests
+          /tmp/guest-privacy-policy-tests
           swift test 2>&1 | tee package-tests.log
       - name: Archive using upstream configuration
         run: |
