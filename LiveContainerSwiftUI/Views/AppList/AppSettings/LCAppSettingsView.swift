@@ -49,12 +49,12 @@ struct LCAppSettingsView: View {
     var body: some View {
         Form {
             Section {
-                HStack {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("lc.appSettings.bundleId".loc)
-                    Spacer()
                     Text(appInfo.relativeBundlePath)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.trailing)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 }
                 HStack {
@@ -110,13 +110,11 @@ struct LCAppSettingsView: View {
             }
             
             Section {
-                List{
-                    ForEach(model.uiContainers.indices, id:\.self) { i in
-                        NavigationLink {
-                            LCContainerView(container: model.uiContainers[i], uiDefaultDataFolder: $model.uiDefaultDataFolder, delegate: self)
-                        } label: {
-                            Text(model.uiContainers[i].name)
-                        }
+                ForEach(model.uiContainers.indices, id: \.self) { i in
+                    NavigationLink {
+                        LCContainerView(container: model.uiContainers[i], uiDefaultDataFolder: $model.uiDefaultDataFolder, delegate: self)
+                    } label: {
+                        Text(model.uiContainers[i].name)
                     }
                 }
                 if(model.uiContainers.count < SharedModel.keychainAccessGroupCount) {
@@ -341,6 +339,16 @@ struct LCAppSettingsView: View {
             } footer: {
                 Text("lcos.files.openInPlaceDescription".loc)
             }
+            Section {
+                NavigationLink {
+                    LCAppPrivacyView(appInfo: appInfo, model: model)
+                } label: {
+                    Label("lcos.privacy.title".loc, systemImage: "hand.raised")
+                }
+            } footer: {
+                Text("lcos.privacy.summary".loc)
+            }
+
             Section {
                 Button("lcos.access.systemSettings".loc) {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
