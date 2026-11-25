@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include "../litehook/src/litehook.h"
 #import "Tweaks/Tweaks.h"
+#import "Tweaks/LCGuestPrivacyHooks.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
@@ -293,6 +294,7 @@ NSString *LCRunGuestExtension(NSDictionary *request, int argc, char *argv[], cha
     NUDGuestHooksInit();
     NSFMGuestExtensionHooksInit(request[@"parentContainerPath"]);
     NSURLSCGuestHooksInit();
+    LCGuestPrivacyHooksInit(guestAppInfo);
     GuestExtensionHooksInit();
 
     if (!LCSharedUtils.certificatePassword && !isSideStore) {
@@ -603,6 +605,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         SecItemGuestHooksInit();
         NSFMGuestHooksInit();
         initDead10ccFix();
+        LCGuestPrivacyHooksInit(guestAppInfo);
     }
     if(isLiveProcess) {
         NSURLSCGuestHooksInit();
