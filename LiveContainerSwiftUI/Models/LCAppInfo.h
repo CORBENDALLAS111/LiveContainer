@@ -73,5 +73,8 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 - (UIImage *)generateLiveContainerWrappedIconWithStyle:(GeneratedIconStyle)style;
 - (NSDictionary *)generateWebClipConfigWithContainerId:(NSString*)containerId iconStyle:(GeneratedIconStyle)style;
 - (void)save;
+- (BOOL)privacyRestrictionEnabled:(NSString *)key NS_SWIFT_NAME(privacyRestrictionEnabled(_:));
+- (BOOL)setPrivacyRestriction:(NSString *)key enabled:(BOOL)enabled NS_SWIFT_NAME(setPrivacyRestriction(_:enabled:));
+
 - (void)patchExecAndSignIfNeedWithCompletionHandler:(void(^)(bool success, NSString* errorInfo))completetionHandler progressHandler:(void(^)(NSProgress* progress))progressHandler  forceSign:(BOOL)forceSign;
 @end
