@@ -3,7 +3,7 @@
 /// Per-guest preferences stored in LCAppInfo.plist. Missing or unknown
 /// keys never change the behavior of existing apps.
 static inline NSArray<NSString *> *LCGuestPrivacyKeys(void) {
-    return @[@"camera", @"microphone", @"battery", @"proximity"];
+    return @[@"camera", @"microphone", @"battery", @"proximity", @"screenshotEvents"];
 }
 
 static inline BOOL LCGuestPrivacyEnabled(NSDictionary *appInfo, NSString *key) {
