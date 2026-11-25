@@ -18,16 +18,18 @@ struct LCHomeMetrics: Equatable {
 
     init(width: Double, height: Double, tablet: Bool, mini: Bool, accessibility: Bool = false, isLandscape: Bool? = nil) {
         let landscape = isLandscape ?? (width > height)
-        if tablet {
-            columns = width < 600 ? 4 : (landscape ? 6 : 5)
-            rows = mini && !landscape ? 6 : 5
-        } else {
-            columns = landscape ? 6 : 4
-            rows = landscape ? 3 : 6
-        }
-        horizontalInset = tablet ? max(20, min(64, width * 0.055)) : 20
-        let cellWidth = max(1, (width - 2 * horizontalInset) / Double(columns))
-        iconSide = max(42, min(accessibility ? 72 : (tablet ? 68 : 62), cellWidth - 18))
+        let preferredColumns = tablet ? (width < 600 ? 4 : (landscape ? 6 : 5)) : (landscape ? 6 : 4)
+        horizontalInset = min(max(0, width * 0.08),
+                              tablet ? max(12, min(64, width * 0.055)) : 20)
+        let available = max(1, width - 2 * horizontalInset)
+        // Preserve familiar 4/5/6-column layouts at normal widths, but
+        // prioritize room for labels at Accessibility Dynamic Type or in
+        // narrow Stage Manager/Split View windows.
+        let minimumCell = accessibility ? 105.0 : 60.0
+        columns = max(1, min(preferredColumns, Int(available / minimumCell)))
+        rows = tablet ? (mini && !landscape ? 6 : 5) : (landscape ? 3 : 6)
+        let cellWidth = max(1, available / Double(columns))
+        iconSide = max(1, min(accessibility ? 72 : (tablet ? 68 : 62), cellWidth - 18))
         // The root home screen is one continuous vertical grid, not a page
         // of rows that must fill the viewport. Keep spacing stable when window
         // height changes (rotation, keyboard and Stage Manager resizing).
