@@ -6,6 +6,7 @@
 #import "LCAppInfo.h"
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/Tweaks/LCGuestPrivacyPolicy.h"
 
 
 @implementation LCAppInfo
@@ -284,6 +285,30 @@
         @"PayloadUUID": @"345097fb-d4f7-4a34-ab90-2e3f1ad62eed",
         @"PayloadVersion": @(1),
     };
+}
+
+- (BOOL)privacyRestrictionEnabled:(NSString *)key {
+    return LCGuestPrivacyEnabled(_info, key);
+}
+
+- (BOOL)setPrivacyRestriction:(NSString *)key enabled:(BOOL)enabled {
+    if (![LCGuestPrivacyKeys() containsObject:key] || _autoSaveDisabled || !_bundlePath.length) return NO;
+    id old = _info[@"LCGuestPrivacy"];
+    NSMutableDictionary *policy = [old isKindOfClass:NSDictionary.class] ? [old mutableCopy] : [NSMutableDictionary new];
+    if (enabled) policy[key] = @YES;
+    else [policy removeObjectForKey:key];
+    if (policy.count) _info[@"LCGuestPrivacy"] = policy;
+    else [_info removeObjectForKey:@"LCGuestPrivacy"];
+    NSError *error = nil;
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:_info
+        format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+    if (!data || ![data writeToFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]
+                              options:NSDataWritingAtomic error:&error]) {
+        if (old) _info[@"LCGuestPrivacy"] = old;
+        else [_info removeObjectForKey:@"LCGuestPrivacy"];
+        return NO;
+    }
+    return YES;
 }
 
 - (void)save {

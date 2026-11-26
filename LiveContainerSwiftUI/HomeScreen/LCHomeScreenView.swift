@@ -181,8 +181,9 @@ struct LCHomeScreenView: View {
     /// addition to simpler ownership, this avoids SwiftUI's simulator
     /// compiler timeout when type-checking an oversized GeometryReader body.
     private func homeCanvas(_ geometry: GeometryProxy) -> some View {
-        let reservedHeight: CGFloat = usesTopTabActions
-            ? (searching ? 154 : 110) : (searching ? 206 : 162)
+        // Window height is not used to paginate the root grid.
+        // Folder layout keeps its own available-height calculation.
+        let reservedHeight: CGFloat = searching ? 206 : 162
         let metrics = LCHomeMetrics(
             width: geometry.size.width,
             height: max(0, geometry.size.height - reservedHeight),
@@ -194,7 +195,11 @@ struct LCHomeScreenView: View {
             accessibility: sizeCategory.isAccessibilityCategory,
             isLandscape: geometry.size.width > geometry.size.height
         )
-        let side = CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale)))
+        let cellWidth = max(1, (geometry.size.width - 2 * CGFloat(metrics.horizontalInset)
+                                - CGFloat(max(0, metrics.columns - 1)) * 10)
+                                / CGFloat(metrics.columns))
+        let side = min(max(24, cellWidth - 4),
+                       CGFloat(metrics.iconSide) * CGFloat(min(1.1, max(0.85, iconScale))))
         let ids = query.isEmpty
             ? layout.rootItems(available)
             : layout.ordered(available).filter { id in
@@ -248,20 +253,12 @@ struct LCHomeScreenView: View {
     @ViewBuilder
     private func homeChrome<Content: View>(_ content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            if usesTopTabActions {
-                // iPad's tab strip already owns the top action row.
-                content
-                    .safeAreaBar(edge: .top, spacing: 0) { pinnedHeader }
-                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
-            } else {
-                // Keep the title above the effect. Only the button row is
-                // inside the native top bar, so its soft transition begins
-                // at the level of the controls instead of behind the title.
-                content
-                    .safeAreaBar(edge: .top, spacing: 0) { pinnedControls }
-                    .safeAreaInset(edge: .top, spacing: 0) { pinnedTitle }
-                    .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
-            }
+            // This screen, not a window-wide overlay, owns all app actions.
+            // Compact iPad windows and iPhones get the same safe-area behavior.
+            content
+                .safeAreaBar(edge: .top, spacing: 0) { pinnedControls }
+                .safeAreaInset(edge: .top, spacing: 0) { pinnedTitle }
+                .safeAreaBar(edge: .bottom, spacing: 0) { pinnedSearch }
         } else {
             content
                 .safeAreaInset(edge: .top, spacing: 0) { pinnedHeader }
@@ -309,13 +306,6 @@ struct LCHomeScreenView: View {
         }
     }
 
-    private var usesTopTabActions: Bool {
-        if #available(iOS 26.0, *) {
-            return UIDevice.current.userInterfaceIdiom == .pad
-        }
-        return false
-    }
-
     /// Outside the glass boundary: keeps the iPhone page title crisp even
     /// when a long grid scrolls underneath the action row.
     private var pinnedTitle: some View {
@@ -326,7 +316,7 @@ struct LCHomeScreenView: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 8)
-            .background(scheme == .dark ? Color.black : Color.white)
+            .background(Color(uiColor: .systemBackground))
     }
 
     /// The pinned top actions, and only the actions, receive the iOS 26
@@ -340,7 +330,7 @@ struct LCHomeScreenView: View {
                             .accessibilityIdentifier("lifecontainer.editDone")
                             .font(.body.weight(.semibold))
                             .padding(.horizontal, 16)
-                            .frame(height: 44)
+                            .frame(minHeight: 44)
                             .lcGlass(in: Capsule(), interactive: true)
                     } else {
                         if shared.multiLCStatus != 2 {
@@ -381,9 +371,7 @@ struct LCHomeScreenView: View {
     private var header: some View {
         VStack(spacing: 0) {
             pinnedTitle
-            if !usesTopTabActions {
-                pinnedActionBar
-            }
+            pinnedActionBar
         }
     }
     private func chromeIcon(_ name: String) -> some View {

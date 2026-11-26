@@ -22,9 +22,6 @@ extension Notification.Name {
 }
 
 struct LCTabView: View {
-    @AppStorage("LCOSHomeScreenEnabled", store: LCUtils.appGroupUserDefault) private var homeScreenEnabled = true
-    @State private var homeScreenEditing = false
-    @Environment(\.colorScheme) private var colorScheme
     @State var errorShow = false
     @State var crashReportShow = false
     @State var errorInfo = ""
@@ -41,16 +38,6 @@ struct LCTabView: View {
         tabContent
         // Do not force an edge blur on every nested Form/List or the tab bar.
         // Let UIKit/SwiftUI render each navigation and tab bar natively.
-        .overlay(alignment: .topTrailing) { floatingHomeActions }
-        .onReceive(NotificationCenter.default.publisher(for: .lcosTopBarEditingChanged)) { note in
-            homeScreenEditing = note.object as? Bool ?? false
-        }
-        .onChange(of: sharedModel.selectedTab) { tab in
-            if tab != .apps { homeScreenEditing = false }
-        }
-        .onChange(of: homeScreenEnabled) { enabled in
-            if !enabled { homeScreenEditing = false }
-        }
         .downloadAlert(helper: downloadHelper)
         .environmentObject(downloadHelper)
         .alert("lc.common.error".loc, isPresented: $errorShow){
@@ -149,84 +136,6 @@ struct LCTabView: View {
                 content.toolbar(.visible, for: .tabBar)
             } else { content }
         }
-    }
-
-    // On iPadOS 26+ the system draws the centered tab strip at the top.
-    // Overlay these actions in the same top safe-area row, keeping all existing
-    // install, SideStore and desktop menu behavior in their owning views.
-    @ViewBuilder
-    private var floatingHomeActions: some View {
-        if #available(iOS 26.0, *) {
-            if UIDevice.current.userInterfaceIdiom == .pad &&
-                homeScreenEnabled && sharedModel.selectedTab == .apps {
-                LCGlassGroup {
-                    HStack(spacing: 12) {
-                        if homeScreenEditing {
-                            Button {
-                                NotificationCenter.default.post(name: .lcosTopBarDone, object: nil)
-                            } label: {
-                                Text("lcos.home.done".loc)
-                                    .font(.body.weight(.semibold))
-                                    .padding(.horizontal, 16)
-                                    .frame(height: 44)
-                                    .lcGlass(in: Capsule(), interactive: true)
-                            }.accessibilityIdentifier("lifecontainer.editDone")
-                        } else {
-                            if sharedModel.multiLCStatus != 2 {
-                                Menu {
-                                    Button("lc.appList.installFromIpa".loc) {
-                                        NotificationCenter.default.post(name: .lcosTopBarImportIPA, object: nil)
-                                    }
-                                    Button("lc.appList.installFromUrl".loc) {
-                                        NotificationCenter.default.post(name: .lcosTopBarImportURL, object: nil)
-                                    }
-                                } label: { topActionIcon("plus") }
-                                .lcFixedInstallOrder()
-                                .accessibilityLabel("lc.appList.installFromIpa".loc)
-                            }
-                            if UserDefaults.sideStoreExist() {
-                                Button {
-                                    NotificationCenter.default.post(name: .lcosTopBarOpenSideStore, object: nil)
-                                } label: {
-                                    IconImageView(icon: BuiltInSideStoreAppInfo.shared.iconIsDarkIcon(colorScheme == .dark))
-                                        .frame(width: 22, height: 22)
-                                        .frame(width: 44, height: 44)
-                                        .lcGlass(in: Circle(), interactive: true)
-                                }.accessibilityLabel("SideStore")
-                            }
-                            Menu {
-                                Toggle("lcos.home.enabled".loc, isOn: $homeScreenEnabled)
-                                Button("lcos.home.edit".loc) {
-                                    NotificationCenter.default.post(name: .lcosTopBarEdit, object: nil)
-                                }
-                                Button("lcos.home.list".loc) { homeScreenEnabled = false }
-                                Button("lc.appList.openLink".loc) {
-                                    NotificationCenter.default.post(name: .lcosTopBarOpenLink, object: nil)
-                                }
-                                if UserDefaults.sideStoreExist() {
-                                    Button("SideStore") {
-                                        NotificationCenter.default.post(name: .lcosTopBarOpenSideStore, object: nil)
-                                    }
-                                }
-                                Button("lcos.home.reset".loc) {
-                                    NotificationCenter.default.post(name: .lcosTopBarReset, object: nil)
-                                }
-                            } label: { topActionIcon("ellipsis") }
-                                .accessibilityLabel("lcos.home.options".loc)
-                        }
-                    }.buttonStyle(.plain)
-                }
-                .padding(.trailing, 20)
-                .padding(.top, 6)
-            }
-        }
-    }
-
-    private func topActionIcon(_ symbol: String) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 18, weight: .medium))
-            .frame(width: 44, height: 44)
-            .lcGlass(in: Circle(), interactive: true)
     }
 
     func dispatchURL(url: URL) {

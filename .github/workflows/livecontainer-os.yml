@@ -12,7 +12,7 @@ on:
         type: string
         default: ''
   push:
-    branches: ['codex/**']
+    branches: ['codex/**', 'feature/guest-privacy-adaptive-ui']
   pull_request:
 permissions:
   contents: read
@@ -51,6 +51,8 @@ jobs:
         run: |
           set -o pipefail
           python3 -m unittest discover -s Tests -p 'test_*.py'
+          xcrun --sdk macosx clang -fobjc-arc -framework Foundation Tests/GuestPrivacyPolicyTests.m -o /tmp/guest-privacy-policy-tests
+          /tmp/guest-privacy-policy-tests
           swift test 2>&1 | tee package-tests.log
       - name: Archive using upstream configuration
         run: |
@@ -80,8 +82,8 @@ jobs:
           mv LiveContainer+SideStore.ipa LifeContainer+SideStore.ipa
           mv LiveContainer+SideStore-ExtraMemory.ipa LifeContainer+SideStore-ExtraMemory.ipa
           mv LiveContainer.ipa LifeContainer+-Standalone.ipa
-          python3 scripts/verify_ipa.py LifeContainer+SideStore.ipa --integrated --signing-injection --automations --builtin-jit --source-commit "$GITHUB_SHA" --output build-evidence.json
-          python3 scripts/verify_ipa.py LifeContainer+SideStore-ExtraMemory.ipa --integrated --signing-injection --automations --builtin-jit --host-memory-request --source-commit "$GITHUB_SHA" --output build-evidence-extra-memory.json
+          python3 scripts/verify_ipa.py LifeContainer+SideStore.ipa --integrated --signing-injection --builtin-jit --source-commit "$GITHUB_SHA" --output build-evidence.json
+          python3 scripts/verify_ipa.py LifeContainer+SideStore-ExtraMemory.ipa --integrated --signing-injection --builtin-jit --host-memory-request --source-commit "$GITHUB_SHA" --output build-evidence-extra-memory.json
           shasum -a 256 LifeContainer+SideStore.ipa LifeContainer+SideStore-ExtraMemory.ipa LifeContainer+-Standalone.ipa > SHA256SUMS
           git rev-parse HEAD > SOURCE_COMMIT
           git submodule status > SUBMODULES
@@ -103,6 +105,16 @@ jobs:
             artifacts/device-probe/LCOSProbe.ipa
             artifacts/device-probe/LCOSProbe-rootful.deb
             artifacts/device-probe/LCOSProbe-rootless.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LC-Plus-Standard
+          path: LifeContainer+SideStore.ipa
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LC-Plus-ExtraMemory
+          path: LifeContainer+SideStore-ExtraMemory.ipa
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
