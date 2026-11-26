@@ -1,4 +1,5 @@
 name: LifeContainer+ - Integrated IPA
+run-name: Build latest LifeContainer+ (standard and Extra Memory)
 on:
   workflow_dispatch:
     inputs:
@@ -11,13 +12,195 @@ on:
         description: Optional matching SideStore build run ID (leave empty for fresh build)
         type: string
         default: ''
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/livecontainer-os.yml'
 permissions:
   contents: read
+  actions: read
 jobs:
-  select-build-branch:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Select the LC+ build branch
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/guest-privacy-adaptive-ui
+      - name: Pin the latest LC+ source commit for both build jobs
+        id: source
         run: |
-          echo "::error::Select feature/guest-privacy-adaptive-ui in the Run workflow branch menu. The actual integrated IPA workflow is in that branch, not main."
-          exit 1
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git log -1 --format='%h %s'
+  sidestore:
+    needs: resolve
+    if: ${{ !inputs.sidestore_run_id }}
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/cache@v4
+        id: signing-cache
+        with:
+          path: artifacts/sidestore-source
+          key: sidestore-xcode26.2-${{ hashFiles('Integrations/SideStore/**', 'scripts/prepare_sidestore_source.py', 'scripts/patch_sidestore_memory_signer.py', 'LiveContainerSwiftUI/PackageManager/Core/Signing*.swift', 'LiveContainerSwiftUI/PackageManager/Core/PackageSHA256.swift', '.github/workflows/build-sidestore-source.yml') }}
+      - uses: actions/checkout@v6
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        with:
+          repository: LiveContainer/SideStore
+          ref: ee3cc16a67f9fed766f79a0ed70938f0f8ad5a07
+          submodules: recursive
+          path: sidestore-source
+      - uses: maxim-lobanov/setup-xcode@v1
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        with:
+          xcode-version: '26.2'
+      - name: Apply reviewed signing overlay
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: python3 scripts/prepare_sidestore_source.py sidestore-source
+      - name: Archive custom SideStore
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        working-directory: sidestore-source
+        run: |
+          set -o pipefail
+          brew install ldid
+          # Preserve entitlement declarations in the embedded SideBackup IPA.
+          # SideSign filters profile entitlements against these declarations when signing later.
+          make build fakesign 2>&1 | tee ../sidestore-build.log
+      - name: Package source-built SideStore
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 - <<'PY'
+          import pathlib, shutil, zipfile
+          source=pathlib.Path('sidestore-source')
+          app=source/'SideStore.xcarchive/Products/Applications/SideStore.app'
+          assert app.is_dir(), 'Missing SideStore archive application'
+          out=pathlib.Path('artifacts/sidestore-source');out.mkdir(parents=True,exist_ok=True)
+          with zipfile.ZipFile(out/'SideStore.ipa','w',zipfile.ZIP_DEFLATED) as archive:
+              for file in app.rglob('*'):
+                  if file.is_file(): archive.write(file,'Payload/SideStore.app/'+file.relative_to(app).as_posix())
+          shutil.copyfile(source/'LCOS_SOURCE.json',out/'SIDESTORE_SOURCE.json')
+          PY
+          python3 scripts/verify_sidebackup.py artifacts/sidestore-source/SideStore.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidestore-source-build
+          path: artifacts/sidestore-source/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sidestore-source-logs
+          path: sidestore-build.log
+          if-no-files-found: warn
+  build:
+    needs: [resolve, sidestore]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.sidestore.result == 'success' || inputs.sidestore_run_id != '') }}
+    runs-on: ${{ inputs.build_runner || 'macos-15' }}
+    timeout-minutes: 45
+    env:
+      SOURCE_SHA: ${{ needs.resolve.outputs.sha }}
+      scheme: LiveContainer
+      archive_path: archive
+      SIDESTORE_SHA256: f9d2d9af51285dcbdece08c51aadc02e8a2d756da6ca8dfca16724c801ae2fcd
+      DYLIBIFY_SHA256: 6d23f6a2fc4d8442f87caa1161aebe6ecaafd0e8c41ce205da007efb04fc82c7
+      SIDESTORE_BUILD_RUN: ${{ inputs.sidestore_run_id || github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          submodules: recursive
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - uses: actions/download-artifact@v4
+        with:
+          name: sidestore-source-build
+          path: artifacts/sidestore-source
+          run-id: ${{ env.SIDESTORE_BUILD_RUN }}
+          github-token: ${{ github.token }}
+      - name: Verify source-built SideStore matches this checkout
+        run: python3 scripts/verify_sidestore_source.py artifacts/sidestore-source/SIDESTORE_SOURCE.json
+      - name: Test package core
+        run: |
+          set -o pipefail
+          python3 -m unittest discover -s Tests -p 'test_*.py'
+          xcrun --sdk macosx clang -fobjc-arc -framework Foundation Tests/GuestPrivacyPolicyTests.m -o /tmp/guest-privacy-policy-tests
+          /tmp/guest-privacy-policy-tests
+          swift test 2>&1 | tee package-tests.log
+      - name: Archive using upstream configuration
+        run: |
+          set -o pipefail
+          xcodebuild archive -project LiveContainer.xcodeproj -scheme "$scheme" -archivePath "$archive_path" -sdk iphoneos -arch arm64 -configuration Release 2>&1 | tee xcodebuild.log
+      - name: Build the separate built-in JIT helper from pinned source
+        run: |
+          set -o pipefail
+          brew install xcodegen
+          python3 scripts/build_builtin_jit.py "$archive_path.xcarchive/Products/Applications/LiveContainer.app" 2>&1 | tee builtin-jit-build.log
+      - name: Compile controlled device probe
+        run: python3 scripts/build_device_probe.py
+      - name: Validate actual SDK-built rootful and rootless packages
+        run: |
+          set -o pipefail
+          LCOS_DEVICE_PROBE_DIR="$PWD/artifacts/device-probe" swift test --filter 'testActualDevice' 2>&1 | tee device-probe-tests.log
+      - name: Validate shared SideStore signing bridge
+        run: |
+          set -o pipefail
+          python3 scripts/test_signing_bridge.py 2>&1 | tee signing-bridge-tests.log
+      - name: Package using upstream SideStore integration
+        env:
+          SIDESTORE_IPA_PATH: ${{ github.workspace }}/artifacts/sidestore-source/SideStore.ipa
+        run: bash .github/build_github.sh
+      - name: Verify integrated IPA and record provenance
+        run: |
+          mv LiveContainer+SideStore.ipa LifeContainer+SideStore.ipa
+          mv LiveContainer+SideStore-ExtraMemory.ipa LifeContainer+SideStore-ExtraMemory.ipa
+          mv LiveContainer.ipa LifeContainer+-Standalone.ipa
+          python3 scripts/verify_ipa.py LifeContainer+SideStore.ipa --integrated --signing-injection --builtin-jit --source-commit "$SOURCE_SHA" --output build-evidence.json
+          python3 scripts/verify_ipa.py LifeContainer+SideStore-ExtraMemory.ipa --integrated --signing-injection --builtin-jit --host-memory-request --source-commit "$SOURCE_SHA" --output build-evidence-extra-memory.json
+          shasum -a 256 LifeContainer+SideStore.ipa LifeContainer+SideStore-ExtraMemory.ipa LifeContainer+-Standalone.ipa > SHA256SUMS
+          git rev-parse HEAD > SOURCE_COMMIT
+          git submodule status > SUBMODULES
+          printenv SIDESTORE_BUILD_RUN > SIDESTORE_BUILD_RUN
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LifeContainer+SideStore.ipa
+          path: |
+            LifeContainer+SideStore.ipa
+            LifeContainer+SideStore-ExtraMemory.ipa
+            SHA256SUMS
+            SOURCE_COMMIT
+            SUBMODULES
+            SIDESTORE_BUILD_RUN
+            build-evidence.json
+            build-evidence-extra-memory.json
+            artifacts/signing-bridge/signing-bridge-evidence.json
+            artifacts/sidestore-source/SIDESTORE_SOURCE.json
+            artifacts/device-probe/LCOSProbe.ipa
+            artifacts/device-probe/LCOSProbe-rootful.deb
+            artifacts/device-probe/LCOSProbe-rootless.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LC-Plus-Standard
+          path: LifeContainer+SideStore.ipa
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LC-Plus-ExtraMemory
+          path: LifeContainer+SideStore-ExtraMemory.ipa
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: |
+            xcodebuild.log
+            package-tests.log
+            device-probe-tests.log
+            signing-bridge-tests.log
+            builtin-jit-build.log
+          if-no-files-found: warn
