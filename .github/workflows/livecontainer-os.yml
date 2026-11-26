@@ -1,0 +1,23 @@
+name: LifeContainer+ - Integrated IPA
+on:
+  workflow_dispatch:
+    inputs:
+      build_runner:
+        description: Standard macOS runner image
+        type: choice
+        options: [macos-15, macos-latest]
+        default: macos-15
+      sidestore_run_id:
+        description: Optional matching SideStore build run ID (leave empty for fresh build)
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  select-build-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select the LC+ build branch
+        run: |
+          echo "::error::Select feature/guest-privacy-adaptive-ui in the Run workflow branch menu. The actual integrated IPA workflow is in that branch, not main."
+          exit 1
